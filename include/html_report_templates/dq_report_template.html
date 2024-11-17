@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data Quality report on Immotop.lu and Athome.lu datasets for : {{date}}</title>
+</head>
+<body>
+    <h1>Data Quality report on Immotop.lu and Athome.lu datasets for : {{date}}</h1>
+
+    {% for website in df_data %}
+
+    <h2>{{website}}</h2>
+
+    <p><strong>Missing columns :</strong> {{df_data[website]["missing_columns"]}}</p>
+
+    <img style="width: 90%; height: 90%;" src="data:image/png;base64, {{df_data[website]['img']}}">
+
+    {% endfor %}
+
+</body>
+</html>
