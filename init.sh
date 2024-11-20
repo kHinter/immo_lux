@@ -20,6 +20,7 @@ airflow_init()
 
     #Install airflow working with postgresql database
     pip install "apache-airflow[postgres]==2.5.0" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.5.0/constraints-3.7.txt"
+    
     airflow db init
     sudo apt-get install postgresql postgresql-contrib
 
@@ -47,4 +48,29 @@ EOF
     airflow scheduler
 }
 
-airflow_init
+selenium_init()
+{
+    wget -P . https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    sudo dpkg -i google-chrome*.deb
+
+    #Extract the chrome version
+    CHROME_VERSION=$(google-chrome --version | grep -o '\([0-9]\+.\)\{3\}[0-9]\+')
+    curl -O "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"
+    unzip chromedriver-linux64.zip
+    rm chromedriver-linux64.zip
+    
+    chmod +x chromedriver
+    sudo mv chromedriver /usr/local/share/chromedriver
+    sudo ln -s /usr/local/share/chromedriver /usr/local/bin/chromedriver
+    sudo ln -s /usr/local/share/chromedriver /usr/bin/chromedriver
+
+    sudo apt install python3-selenium
+}
+
+# airflow_init
+# selenium_init
+
+#Move folders in airflow directory
+BASH_DIR=$(dirname $(readlink -f $0))
+ln -s $BASH_DIR/dags/ ~/airflow/
+ln -s $BASH_DIR/include/ ~/airflow/
