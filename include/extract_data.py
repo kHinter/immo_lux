@@ -6,11 +6,11 @@ import logging
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+
+# from selenium.webdriver.support.ui import WebDriverWait
+# from selenium.webdriver.support import expected_conditions as EC
+# from selenium.webdriver.common.by import By
 
 def extract_athome_data():
     accomodations = []
@@ -20,16 +20,17 @@ def extract_athome_data():
     translate_table_price = str.maketrans("", "", "€ \u202f\xa0'")
     excluded_categories = ("garage-parking", "office", "commercial-property")
 
-    logging.basicConfig(level=logging.WARN)
-    logging.getLogger('selenium').setLevel(logging.DEBUG)
+    ###SELENIUM SETUP####
+    # chrome_options = Options()
+    # chrome_options.add_argument("--headless") 
+    # chrome_options.add_argument("--no-sandbox")
 
-    #Selenium driver
-    chrome_options = Options()
-    chrome_options.headless = True
+    # driver_location = "/usr/bin/chromedriver"
+    # binary_location = "/usr/bin/google-chrome"
 
-    #service = Service(executable_path="/usr/local/airflow/chromedriver/chromedriver-linux64/chromedriver")
-    #service = Service(executable_path="./chromedriver/chromedriver-win64/chromedriver.exe")
-    driver = webdriver.Chrome(options=chrome_options)
+    # chrome_options.binary_location = binary_location
+    # service = Service(executable_path=driver_location)
+    # driver = webdriver.Chrome(service=service, options=chrome_options)
 
     #Modify the user agent to not be detected as a bot
     headers = {"user-agent" : "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"}
@@ -39,6 +40,7 @@ def extract_athome_data():
     while proceed:
         current_url = 'https://www.athome.lu/en/srp/?tr=rent&sort=price_asc&recent_published=3&q=faee1a4a&loc=L2-luxembourg&page=' + str(current_page)
         page = requests.get(current_url, headers=headers)
+
         s = BeautifulSoup (page.text, "html.parser")
 
         #Check if we have reached the end of the results
@@ -236,8 +238,7 @@ def extract_athome_data():
                     item["Photos"] = ""
 
                     #Because the DOM can change due to responsiveness
-                    #driver.get(item["Link"])
-                    driver.get("https://google.com")
+                    # driver.get(item["Link"])
                     
                     # WebDriverWait(driver, 5).until(
                     #     EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler"))
@@ -250,12 +251,10 @@ def extract_athome_data():
                     # for img in ul_photos.find_elements(By.TAG_NAME, "img"):
                     #     item["Photos"] += img.get_attribute("src") + " "
                     
-                    driver.close()
                     accomodations.append(item)
             current_page+=1
 
             logging.info("Page " + str(current_page) + " of athome.lu has entirely been scrapped !")
-            driver.quit()
     
     #Persistance of data
     df = pd.DataFrame(accomodations)
@@ -357,4 +356,4 @@ def extract_immotop_lu_data():
 
     logging.info("Scraping of immotop.lu is successfully finished !")
 
-extract_athome_data()
+# extract_athome_data()

@@ -3,7 +3,11 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime
 
-#Local includes
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Local includes
 from include.extract_data import extract_immotop_lu_data, extract_athome_data
 from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_cleaning
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
@@ -69,11 +73,8 @@ gen_report = PythonOperator(
     dag=dag
 )
 
-extract_data_from_immotop_lu >> transform_data_from_immotop_lu
-extract_data_from_athome_lu >> transform_data_from_athome_lu
-
-transform_data_from_athome_lu >> athome_lu_data_enrichment
-transform_data_from_immotop_lu >> immotop_lu_data_enrichment
+extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
+extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment
 
 athome_lu_data_enrichment >> gen_report
 immotop_lu_data_enrichment >> gen_report

@@ -1,12 +1,14 @@
-import pandas as pd
-from datetime import date
-import jinja2
-import matplotlib.pyplot as plt
-import io
-import base64
-import numpy as np
+
 
 def generate_report():
+    import pandas as pd
+    from datetime import date
+    import jinja2
+    import matplotlib.pyplot as plt
+    import io
+    import base64
+    import numpy as np
+    
     today = str(date.today())
 
     #The way to automate the generation of the report
