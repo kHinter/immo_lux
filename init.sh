@@ -26,6 +26,7 @@ airflow_init()
     pip install pandas
     pip install bs4
     pip install opencv-python
+    pip install matplotlib
     
     airflow db init
     sudo apt-get install postgresql postgresql-contrib

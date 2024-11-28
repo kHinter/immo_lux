@@ -1,18 +1,22 @@
-import requests
-import pandas as pd
-from bs4 import BeautifulSoup
 from datetime import date
 import logging
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-# from selenium.webdriver.common.by import By
-
 def extract_athome_data():
+    #Import here to optimize the DAG preprocessing
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.common.by import By
+    from selenium.common.exceptions import NoSuchElementException
+
+    import requests
+    import pandas as pd
+    from bs4 import BeautifulSoup
+    import os
+
     accomodations = []
 
     proceed = True
@@ -21,16 +25,49 @@ def extract_athome_data():
     excluded_categories = ("garage-parking", "office", "commercial-property")
 
     ###SELENIUM SETUP####
-    # chrome_options = Options()
-    # chrome_options.add_argument("--headless") 
-    # chrome_options.add_argument("--no-sandbox")
 
-    # driver_location = "/usr/bin/chromedriver"
-    # binary_location = "/usr/bin/google-chrome"
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--single-process")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    chrome_options.add_argument("--disable-crash-reporter")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36')
 
-    # chrome_options.binary_location = binary_location
-    # service = Service(executable_path=driver_location)
-    # driver = webdriver.Chrome(service=service, options=chrome_options)
+    # adding argument to disable the AutomationControlled flag
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    # exclude the collection of enable-automation switches 
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    # turn-off userAutomationExtension 
+    chrome_options.add_experimental_option("useAutomationExtension", False)
+
+    driver_location = "/usr/bin/chromedriver"
+    binary_location = "/usr/bin/google-chrome"
+
+    #Launch chrome in a CGroup to limit its resources conssumption
+    os.environ["webdriver.chrome.driver"] = f"cgexec -g cpu,memory:chrome_limit {binary_location}"
+
+    chrome_options.binary_location = binary_location
+    service = Service(executable_path=driver_location)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    #To change the user agents
+    # selenium_user_agent = [
+    #     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+    #     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"
+    # ]
+    
+    # changing the property of the navigator value for webdriver to undefined 
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    driver.maximize_window()
+
+    #Only for selenium purpose
+    first_session = True
 
     #Modify the user agent to not be detected as a bot
     headers = {"user-agent" : "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"}
@@ -50,19 +87,19 @@ def extract_athome_data():
             #List all the properties to treat
             properties = s.find_all("article", class_= ["property-article standard", "property-article silver", "property-article gold", "property-article platinum"])
 
-            for property in properties:
+            for i in range(len(properties)):
                 item = {}
                 
                 #Global characteristics (optionnals such as the price, the number of rooms, etc ...)
-                characterstics = property.find("ul", class_="property-card-info-icons property-characterstics")
+                characterstics = properties[i].find("ul", class_="property-card-info-icons property-characterstics")
                 surface = characterstics.find("li", class_="item-surface")
-                href = property.find("a", class_="property-card-link property-title").attrs["href"]
+                href = properties[i].find("a", class_="property-card-link property-title").attrs["href"]
                 
                 #Ensure that every property to include possess a surface and are not categorized as garage / parking or office
                 if surface != None and all(excluded_category not in href for excluded_category in excluded_categories):
-                    item["Price"] = property.find("span", class_="font-semibold whitespace-nowrap").get_text().translate(translate_table_price).replace(",", "")
+                    item["Price"] = properties[i].find("span", class_="font-semibold whitespace-nowrap").get_text().translate(translate_table_price).replace(",", "")
                     item["Surface"] = surface.get_text().replace("m²", "").strip()
-                    item["City"] = property.find("span", class_="property-card-immotype-location-city").get_text()
+                    item["City"] = properties[i].find("span", class_="property-card-immotype-location-city").get_text()
                     item["Link"] = "https://www.athome.lu" + href
 
                     if "apartment" in item["Link"]:
@@ -237,19 +274,34 @@ def extract_athome_data():
                     #Add the photos of the accomodation to the dataframe
                     item["Photos"] = ""
 
-                    #Because the DOM can change due to responsiveness
-                    # driver.get(item["Link"])
-                    
-                    # WebDriverWait(driver, 5).until(
-                    #     EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler"))
-                    # )
-                    # accept_cookies = driver.find_element(By.ID, "onetrust-accept-btn-handler")
-                    # accept_cookies.click()
+                    #Change user-agent to avoid detection
+                    # driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": selenium_user_agent[i % 2]})
 
-                    # desktop_gallery = driver.find_element(By.CLASS_NAME, "showHideDesktopGallery")
-                    # ul_photos = desktop_gallery.find_element(By.TAG_NAME, "ul")
-                    # for img in ul_photos.find_elements(By.TAG_NAME, "img"):
-                    #     item["Photos"] += img.get_attribute("src") + " "
+                    #Because the DOM can change due to responsiveness
+                    driver.get(item["Link"])
+                    
+                    #To accept the cookies the first time
+                    if first_session:
+                        WebDriverWait(driver, 5).until(
+                            EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler"))
+                        )
+                        accept_cookies = driver.find_element(By.ID, "onetrust-accept-btn-handler")
+                        accept_cookies.click()
+
+                        first_session = False
+                    WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery"))
+                    )
+                    desktop_gallery = driver.find_element(By.CLASS_NAME, "showHideDesktopGallery")
+                    ul_photos = desktop_gallery.find_element(By.TAG_NAME, "ul")
+                        
+                    #Find picture first instead of img to avoid the maps
+                    for picture in ul_photos.find_elements(By.TAG_NAME, "picture"):
+                        try:
+                            img = picture.find_element(By.TAG_NAME, "img")
+                            item["Photos"] += img.get_attribute("src") + " "
+                        except NoSuchElementException:
+                            pass
                     
                     accomodations.append(item)
             current_page+=1
@@ -260,12 +312,17 @@ def extract_athome_data():
     df = pd.DataFrame(accomodations)
     df["Snapshot_day"] = str(date.today())
     df["Website"] = "athome"
-    df.to_csv("/usr/local/airflow/dags/data/raw/athome_last3d_" + str(date.today()) + ".csv", index=False)
+    df.to_csv("~/airflow/dags/data/raw/athome_last3d.csv", index=False)
 
     logging.info("Scraping of athome.lu successfully ran !")
 
 
 def extract_immotop_lu_data():
+    #Import here to optimize the DAG preprocessing
+    import requests
+    import pandas as pd
+    from bs4 import BeautifulSoup
+
     accomodations = []
 
     proceed = True
@@ -352,7 +409,7 @@ def extract_immotop_lu_data():
     df = pd.DataFrame(accomodations)
     df["Snapshot_day"] = str(date.today())
     df["Website"] = "immotop.lu"
-    df.to_csv("/usr/local/airflow/dags/data/raw/immotop_lu.csv", index=False)
+    df.to_csv("~/airflow/dags/data/raw/immotop_lu.csv", index=False)
 
     logging.info("Scraping of immotop.lu is successfully finished !")
 

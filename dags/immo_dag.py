@@ -5,6 +5,8 @@ from datetime import datetime
 
 import sys
 import os
+
+#To find the include folder in order to realize the local imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Local includes
@@ -24,57 +26,49 @@ default_args = {
     "retry_delay" : timedelta(minutes=2)
 }
 
-dag = DAG(
+with DAG(
     "immo_dag",
     default_args=default_args,
     description="Web scraping of several real estate listing websites",
     schedule_interval="0 0 */3 * *"
-)
+) as dag:
+    extract_data_from_immotop_lu = PythonOperator(
+        task_id = "extract_data_from_immotop_lu",
+        python_callable=extract_immotop_lu_data
+    )
 
-extract_data_from_immotop_lu = PythonOperator(
-     task_id = "extract_data_from_immotop_lu",
-     python_callable=extract_immotop_lu_data,
-     dag=dag
-)
+    extract_data_from_athome_lu = PythonOperator(
+        task_id = "extract_data_from_athome_lu",
+        python_callable=extract_athome_data
+    )
 
-extract_data_from_athome_lu = PythonOperator(
-    task_id = "extract_data_from_athome_lu",
-    python_callable=extract_athome_data,
-    dag=dag
-)
+    transform_data_from_immotop_lu = PythonOperator(
+        task_id = "transform_data_from_immotop_lu",
+        python_callable=immotop_lu_data_cleaning
+    )
 
-transform_data_from_immotop_lu = PythonOperator(
-    task_id = "transform_data_from_immotop_lu",
-     python_callable=immotop_lu_data_cleaning,
-     dag=dag
-)
+    transform_data_from_athome_lu = PythonOperator(
+        task_id = "transform_data_from_athome_lu",
+        python_callable=athome_lu_data_cleaning
+    )
 
-transform_data_from_athome_lu = PythonOperator(
-    task_id = "transform_data_from_athome_lu",
-     python_callable=athome_lu_data_cleaning,
-     dag=dag
-)
+    immotop_lu_data_enrichment = PythonOperator(
+        task_id = "immotop_lu_data_enrichment",
+        python_callable=immotop_lu_enrichment
+    )
 
-immotop_lu_data_enrichment = PythonOperator(
-    task_id = "immotop_lu_data_enrichment",
-    python_callable=immotop_lu_enrichment,
-    dag=dag
-)
+    athome_lu_data_enrichment = PythonOperator(
+        task_id = "athome_lu_data_enrichment",
+        python_callable=athome_lu_enrichment
+    )
 
-athome_lu_data_enrichment = PythonOperator(
-    task_id = "athome_lu_data_enrichment",
-    python_callable=athome_lu_enrichment,
-    dag=dag
-)
+    gen_report = PythonOperator(
+        task_id = "generate_report",
+        python_callable=generate_report,
+    )
 
-gen_report = PythonOperator(
-    task_id = "generate_report",
-    python_callable=generate_report,
-    dag=dag
-)
+    extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
+    extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment
 
-extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
-extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment
-
-athome_lu_data_enrichment >> gen_report
-immotop_lu_data_enrichment >> gen_report
+    athome_lu_data_enrichment >> gen_report
+    immotop_lu_data_enrichment >> gen_report

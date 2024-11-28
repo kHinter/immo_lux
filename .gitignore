@@ -1,2 +1,4 @@
-dags/data/*
+dags/data/raw/*
+dags/data/cleaned/*
+dags/data/enriched*
 dags/reports/*

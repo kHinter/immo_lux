@@ -60,8 +60,7 @@ def get_district(district):
         
 
 def immotop_lu_data_cleaning():
-    df = pd.read_csv("/usr/local/airflow/dags/data/raw/immotop_lu.csv", dtype={"Bedrooms" : "Int64"})
-    # df = pd.read_csv("./data/raw/immotop_lu.csv", dtype={"Bedrooms" : "Int64"})
+    df = pd.read_csv("~/airflow/dags/data/raw/immotop_lu.csv", dtype={"Bedrooms" : "Int64"})
     
     #Starting by renaming the columns to correspond with all the other files
     #Key = Feature name displayed on the website, Value = Column name on the df
@@ -113,13 +112,12 @@ def immotop_lu_data_cleaning():
     df.drop(columns=["Rental guarantee", "Condominium_fees"], inplace=True)
     df.dropna(subset=["Surface", "Price"], inplace=True)
 
-    df.to_csv("/usr/local/airflow/dags/data/cleaned/immotop_lu.csv", index=False)
-    # df.to_csv("./data/cleaned/immotop_lu.csv", index=False)
+    df.to_csv("~/airflow/dags/data/cleaned/immotop_lu.csv", index=False)
 
 def athome_lu_data_cleaning():
     #TODO Verify if there is duplicated columns
     df = pd.read_csv(
-        f"/usr/local/airflow/dags/data/raw/athome_last3d_" + str(date.today()) + ".csv",
+        f"~/airflow/dags/data/raw/athome_last3d.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -127,22 +125,8 @@ def athome_lu_data_cleaning():
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
             "Garages" : "Int64"})
-
-    # df = pd.read_csv(
-    #     "./data/raw/athome_last3d_" + str(date.today()) + ".csv",
-    #     dtype={
-    #         "Monthly_charges" : "Int64",
-    #         "Deposit" : "Int64",
-    #         "Floor_number" : "Int64",
-    #         "Bedrooms" : "Int64",
-    #         "Bathroom" : "Int64",
-    #         "Garages" : "Int64"})
     
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
-    df.to_csv("/usr/local/airflow/dags/data/cleaned/athome_last3d_" + str(date.today()) + ".csv", index=False)
-    # df.to_csv("./data/cleaned/athome_last3d_" + str(date.today()) + ".csv", index=False)
-
-# athome_lu_data_cleaning()
-# immotop_lu_data_cleaning()
+    df.to_csv("~/airflow/dags/data/cleaned/athome_last3d.csv", index=False)

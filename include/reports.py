@@ -1,70 +1,42 @@
-
-
 def generate_report():
     import pandas as pd
     from datetime import date
     import jinja2
     import matplotlib.pyplot as plt
     import io
+    import os
+    import logging
     import base64
     import numpy as np
-    
-    today = str(date.today())
-
-    #The way to automate the generation of the report
-    # df_data = {
-    #     "Immotop.lu" : {
-    #         "steps" : {
-    #             "cleaned" : {
-    #                 "df" : pd.read_csv("./data/cleaned/immotop_lu.csv")
-    #             },
-    #             "enriched" : {
-    #                 "df" : pd.read_csv("./data/enriched/immotop_lu.csv")
-    #             }
-    #         }
-    #     },
-    #     "Athome.lu" : {
-    #         "steps" : {
-    #             "cleaned" : {
-    #                 "df" : pd.read_csv(f"./data/cleaned/athome_last3d_{today}.csv")
-    #             },
-    #             "enriched" : {
-    #                 "df" : pd.read_csv(f"./data/enriched/athome_last3d_{today}.csv")
-    #             }
-    #         }
-    #     }
-    # }
 
     df_data = {
         "Immotop.lu" : {
             "steps" : {
                 "cleaned" : {
-                    "df" : pd.read_csv("/usr/local/airflow/dags/data/cleaned/immotop_lu.csv")
+                    "df" : pd.read_csv("~/airflow/dags/data/cleaned/immotop_lu.csv")
                 },
                 "enriched" : {
-                    "df" : pd.read_csv("/usr/local/airflow/dags/data/enriched/immotop_lu.csv")
+                    "df" : pd.read_csv("~/airflow/dags/data/enriched/immotop_lu.csv")
                 }
             }
         },
         "Athome.lu" : {
             "steps" : {
                 "cleaned" : {
-                    "df" : pd.read_csv(f"/usr/local/airflow/dags/data/cleaned/athome_last3d_{today}.csv")
+                    "df" : pd.read_csv(f"~/airflow/dags/data/cleaned/athome_last3d.csv")
                 },
                 "enriched" : {
-                    "df" : pd.read_csv(f"/usr/local/airflow/dags/data/enriched/athome_last3d_{today}.csv")
+                    "df" : pd.read_csv(f"~/airflow/dags/data/enriched/athome_last3d.csv")
                 }
             }
         }
     }
 
+    logging.info(os.getcwd())
+
     #Load the HTML template
-    # html_template = jinja2.Environment(
-    #     loader=jinja2.FileSystemLoader("./html_report_templates")
-    # ).get_template("dq_report_template.html")
-    
     html_template = jinja2.Environment(
-        loader=jinja2.FileSystemLoader("/usr/local/airflow/include/html_report_templates")
+        loader=jinja2.FileSystemLoader("/root/airflow/include/html_report_templates")
     ).get_template("dq_report_template.html")
 
     #Generate dynamic informations about each dataset
@@ -113,6 +85,8 @@ def generate_report():
         df_data[website]["img"] = base64.b64encode(plt_img_bytes.read()).decode()
         plt.close()
 
+    today = str(date.today())
+
     context = {
         "date" : today,
         "df_data" : df_data
@@ -120,9 +94,8 @@ def generate_report():
 
     #Complete the template with my dynamic data
     reportText = html_template.render(context)
-
-    # with open(f"./reports/dq_report_{today}.html", "w") as f:
-    #     f.write(reportText)
     
-    with open(f"/usr/local/airflow/dags/reports/dq_report_{today}.html", "w") as f:
+    with open(f"~/airflow/dags/reports/dq_report_{today}.html", "w") as f:
         f.write(reportText)
+
+# generate_report()
