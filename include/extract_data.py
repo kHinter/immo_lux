@@ -1,5 +1,6 @@
 from datetime import date
 import logging
+import os
 
 def extract_athome_data():
     #Import here to optimize the DAG preprocessing
@@ -15,7 +16,6 @@ def extract_athome_data():
     import requests
     import pandas as pd
     from bs4 import BeautifulSoup
-    import os
 
     accomodations = []
 
@@ -37,6 +37,12 @@ def extract_athome_data():
     chrome_options.add_argument("--disable-plugins")
     chrome_options.add_argument("--disable-crash-reporter")
     chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-default-apps")
+    chrome_options.add_argument("--disable-client-side-phishing-detection")
+    
+    #Define a user agent to avoid anti-bot detection
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36')
 
     # adding argument to disable the AutomationControlled flag
@@ -48,9 +54,6 @@ def extract_athome_data():
 
     driver_location = "/usr/bin/chromedriver"
     binary_location = "/usr/bin/google-chrome"
-
-    #Launch chrome in a CGroup to limit its resources conssumption
-    os.environ["webdriver.chrome.driver"] = f"cgexec -g cpu,memory:chrome_limit {binary_location}"
 
     chrome_options.binary_location = binary_location
     service = Service(executable_path=driver_location)
@@ -69,7 +72,7 @@ def extract_athome_data():
     #Only for selenium purpose
     first_session = True
 
-    #Modify the user agent to not be detected as a bot
+    #Modify the user agent of BS4 to not be detected as a bot
     headers = {"user-agent" : "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"}
 
     logging.info("Scraping of athome.lu has started !")
@@ -277,6 +280,7 @@ def extract_athome_data():
                     #Change user-agent to avoid detection
                     # driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": selenium_user_agent[i % 2]})
 
+                    WebDriverWait(driver, 2)
                     #Because the DOM can change due to responsiveness
                     driver.get(item["Link"])
                     
@@ -310,9 +314,11 @@ def extract_athome_data():
     
     #Persistance of data
     df = pd.DataFrame(accomodations)
-    df["Snapshot_day"] = str(date.today())
+    today = str(date.today())
+    airflow_home = os.environ["AIRFLOW_HOME"]
+    df["Snapshot_day"] = today
     df["Website"] = "athome"
-    df.to_csv("~/airflow/dags/data/raw/athome_last3d.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/raw/athome_last3d_{today}.csv", index=False)
 
     logging.info("Scraping of athome.lu successfully ran !")
 
@@ -406,10 +412,12 @@ def extract_immotop_lu_data():
             logging.info("Page " + str(current_page) + " of immotop.lu has entirely been scrapped !")
     
     #Persistance of data
+    today = str(date.today())
+    airflow_home = os.environ["AIRFLOW_HOME"]
     df = pd.DataFrame(accomodations)
-    df["Snapshot_day"] = str(date.today())
+    df["Snapshot_day"] = today
     df["Website"] = "immotop.lu"
-    df.to_csv("~/airflow/dags/data/raw/immotop_lu.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/raw/immotop_lu_{today}.csv", index=False)
 
     logging.info("Scraping of immotop.lu is successfully finished !")
 

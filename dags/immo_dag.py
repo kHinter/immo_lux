@@ -1,6 +1,7 @@
 from datetime import timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.models import Variable
 from datetime import datetime
 
 import sys
@@ -18,8 +19,8 @@ from include.reports import generate_report
 default_args = {
     "owner" : "airflow",
     'depends_on_past' : False,
-    'start_date' : datetime(2024, 10, 3),
-    "email" : "kevin.hautmann@outlook.fr",
+    'start_date' : datetime(2024, 11, 20),
+    "email" : Variable.get("email"),
     "email_on_failure" : True,
     "email_on_retry" : True,
     "retries" : 1,
@@ -30,7 +31,8 @@ with DAG(
     "immo_dag",
     default_args=default_args,
     description="Web scraping of several real estate listing websites",
-    schedule_interval="0 0 */3 * *"
+    schedule_interval="0 0 */3 * *",
+    catchup=False
 ) as dag:
     extract_data_from_immotop_lu = PythonOperator(
         task_id = "extract_data_from_immotop_lu",

@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import date
 import re
+import os
 import cv2
 
 ##REGEX
@@ -60,7 +61,10 @@ def get_district(district):
         
 
 def immotop_lu_data_cleaning():
-    df = pd.read_csv("~/airflow/dags/data/raw/immotop_lu.csv", dtype={"Bedrooms" : "Int64"})
+    today = str(date.today())
+    airflow_home = os.environ["AIRFLOW_HOME"]
+    
+    df = pd.read_csv(f"{airflow_home}/dags/data/raw/immotop_lu_{today}.csv", dtype={"Bedrooms" : "Int64"})
     
     #Starting by renaming the columns to correspond with all the other files
     #Key = Feature name displayed on the website, Value = Column name on the df
@@ -112,12 +116,15 @@ def immotop_lu_data_cleaning():
     df.drop(columns=["Rental guarantee", "Condominium_fees"], inplace=True)
     df.dropna(subset=["Surface", "Price"], inplace=True)
 
-    df.to_csv("~/airflow/dags/data/cleaned/immotop_lu.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{today}.csv", index=False)
 
 def athome_lu_data_cleaning():
     #TODO Verify if there is duplicated columns
+    today = str(date.today())
+    airflow_home = os.environ["AIRFLOW_HOME"]
+
     df = pd.read_csv(
-        f"~/airflow/dags/data/raw/athome_last3d.csv",
+        f"{airflow_home}/dags/data/raw/athome_last3d_{today}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -129,4 +136,4 @@ def athome_lu_data_cleaning():
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
-    df.to_csv("~/airflow/dags/data/cleaned/athome_last3d.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv", index=False)

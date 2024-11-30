@@ -7,7 +7,7 @@ airflow_init()
     sudo apt install sqlite3
     sudo apt install python3-venv
 
-    cd ~
+    cd $BASH_DIR/..
 
     #Verify if the virtual environnment is already created
     if [[ ! -f ./venv/bin/activate ]]; then
@@ -17,6 +17,11 @@ airflow_init()
 
     source venv/bin/activate
     sudo apt-get install libpq-dev
+
+    #Setup of AIRFLOW_HOME environment variable
+    if ! grep -q "AIRFLOW_HOME" ~/.bashrc; then
+        echo "export AIRFLOW_HOME=/home/airflow" >> ~/.bashrc
+    fi
 
     #Install airflow working with postgresql database
     pip install "apache-airflow[postgres]==2.5.0" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.5.0/constraints-3.7.txt"
@@ -39,12 +44,15 @@ airflow_init()
     ALTER DATABASE airflow OWNER TO airflow;
 EOF
 
-    cd airflow
+    cd $AIRFLOW_HOME
 
     #Switch from sqlite to postgresql
     sed -i 's#sqlite:////[^/]*\/airflow\/airflow.db#postgresql+psycopg2://airflow:airflow@localhost/airflow#g' airflow.cfg
     #Allow tasks to run in parallel
     sed -i 's#SequentialExecutor#LocalExecutor#g' airflow.cfg
+
+    #To avoid getting dagbag timeout error
+    sed -i 's#dagbag_import_timeout = 30.0#dagbag_import_timeout = 60.0#g' airflow.cfg
 
     #Initalize again to effectively use PostgreSQL
     airflow db init
@@ -88,5 +96,5 @@ selenium_init
 
 #Move folders in airflow directory
 
-ln -s $BASH_DIR/dags/ ~/airflow/
-ln -s $BASH_DIR/include/ ~/airflow/
+ln -s $BASH_DIR/dags/ $AIRFLOW_HOME
+ln -s $BASH_DIR/include/ $AIRFLOW_HOME
