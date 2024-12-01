@@ -1,8 +1,11 @@
+import urllib.request
 import pandas as pd
 from datetime import date
 import re
 import os
 import cv2
+import urllib
+import numpy as np
 
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -58,6 +61,61 @@ def get_district(district):
         return pd.NA
     else:
         return district.replace("Localité", "")
+    
+def remove_athome_duplicates(df):
+    df.sort_values(by="Price")
+
+    i = 0
+    latest_exactness_acc_index = 0
+    df_len = len(df)
+
+    #Using a while in order to change the incrementation value
+    while i < df_len:
+
+        #If no images to compare then skip
+        if pd.isna(df.loc[i, "Photos"]):
+            continue
+
+        for j in range (i+1, len(df)):
+            if df.loc[i, "Price"] != df.loc[j, "Price"]:
+                if latest_exactness_acc_index > i:
+                    i = latest_exactness_acc_index
+                break
+
+            if pd.isna(df.loc[j, "Photos"]):
+                continue
+
+            i_photos_url = df.loc[i, "Photos"].split(" ")
+            j_photos_url = df.loc[j, "Photos"].split(" ")
+
+            for i_photo_url in i_photos_url:
+                for j_photo_url in j_photos_url:
+                    #Get the images from url
+                    i_photo_request = urllib.request.urlopen(i_photo_url)
+                    i_photo = cv2.imdecode(np.asarray(bytearray(i_photo_request.read()), dtype=np.uint8), -1)
+
+                    j_photo_request = urllib.request.urlopen(j_photo_url)
+                    j_photo = cv2.imdecode(np.asarray(bytearray(j_photo_request.read()), dtype=np.uint8), -1)
+
+                    hist_i_photo = cv2.calcHist([i_photo], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
+                    hist_i_photo[255, 255, 255] = 0 #Ignore white pixels
+                    cv2.normalize(hist_i_photo, hist_i_photo, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+                    hist_j_photo = cv2.calcHist([j_photo], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
+                    hist_j_photo[255, 255, 255] = 0 #Ignore white pixels
+                    cv2.normalize(hist_j_photo, hist_j_photo, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+                    # Find the metric value
+                    metric_val = cv2.compareHist(hist_i_photo, hist_j_photo, cv2.HISTCMP_CORREL)
+                    # print(f"Similarity Score: ", round(metric_val, 2))
+
+                    exactness_threshold = 0.90
+
+                    if metric_val >= exactness_threshold:
+                        df.loc[j, "Duplicate_Rank"] = (j + 1) - i
+                        latest_exactness_acc_index = j
+                        break
+        i+=1
         
 
 def immotop_lu_data_cleaning():
@@ -119,7 +177,6 @@ def immotop_lu_data_cleaning():
     df.to_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{today}.csv", index=False)
 
 def athome_lu_data_cleaning():
-    #TODO Verify if there is duplicated columns
     today = str(date.today())
     airflow_home = os.environ["AIRFLOW_HOME"]
 
@@ -132,8 +189,16 @@ def athome_lu_data_cleaning():
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
             "Garages" : "Int64"})
+
+    #Introduction of a new column that will be used to identify the duplicates later on
+    #1 is the default value (= no other duplicates)
+    df["Duplicate_rank"] = 1
     
+    remove_athome_duplicates(df)
+
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
     df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv", index=False)
+
+# athome_lu_data_cleaning()

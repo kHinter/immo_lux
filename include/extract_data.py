@@ -307,6 +307,9 @@ def extract_athome_data():
                         except NoSuchElementException:
                             pass
                     
+                    #Remove the last space delimiter at the end of the string
+                    item["Photos"] = item["Photos"].rstrip()
+                    
                     accomodations.append(item)
             current_page+=1
 
