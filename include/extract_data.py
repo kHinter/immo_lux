@@ -315,6 +315,8 @@ def extract_athome_data():
 
             logging.info("Page " + str(current_page) + " of athome.lu has entirely been scrapped !")
     
+    driver.quit()
+    
     #Persistance of data
     df = pd.DataFrame(accomodations)
     today = str(date.today())

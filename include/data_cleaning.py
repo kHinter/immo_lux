@@ -62,24 +62,27 @@ def get_district(district):
     else:
         return district.replace("Localité", "")
     
-def remove_athome_duplicates(df):
-    df.sort_values(by="Price")
+def treat_athome_duplicates(df):
+    df.sort_values(by=["Price", "Surface"])
 
     i = 0
-    latest_exactness_acc_index = 0
     df_len = len(df)
 
     #Using a while in order to change the incrementation value
     while i < df_len:
+        latest_duplicate_index = i
+        #The count of duplicated elements compared to i
+        duplicates_count = 0
 
         #If no images to compare then skip
         if pd.isna(df.loc[i, "Photos"]):
+            i += 1
             continue
 
-        for j in range (i+1, len(df)):
-            if df.loc[i, "Price"] != df.loc[j, "Price"]:
-                if latest_exactness_acc_index > i:
-                    i = latest_exactness_acc_index
+        for j in range (i+1, df_len):
+            surface_diff = df.loc[j, "Surface"] - df.loc[i, "Surface"]
+            surface_diff_threshold = 4
+            if df.loc[i, "Price"] != df.loc[j, "Price"] or surface_diff > surface_diff_threshold:
                 break
 
             if pd.isna(df.loc[j, "Photos"]):
@@ -112,11 +115,20 @@ def remove_athome_duplicates(df):
                     exactness_threshold = 0.90
 
                     if metric_val >= exactness_threshold:
-                        df.loc[j, "Duplicate_Rank"] = (j + 1) - i
-                        latest_exactness_acc_index = j
+                        duplicates_count += 1
+                        df.loc[j, "Duplicate_rank"] = duplicates_count + 1
+
+                        #Allow to skip the series of adjacent duplicates
+                        if j - latest_duplicate_index == 1:
+                            i = j
+                        
+                        latest_duplicate_index = j
                         break
+                
+                if latest_duplicate_index == j:
+                    break
+        print(f"i : {i}")
         i+=1
-        
 
 def immotop_lu_data_cleaning():
     today = str(date.today())
@@ -194,7 +206,7 @@ def athome_lu_data_cleaning():
     #1 is the default value (= no other duplicates)
     df["Duplicate_rank"] = 1
     
-    remove_athome_duplicates(df)
+    treat_athome_duplicates(df)
 
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
