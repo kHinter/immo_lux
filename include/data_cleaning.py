@@ -4,8 +4,9 @@ from datetime import date
 import re
 import os
 import cv2
-import urllib
 import numpy as np
+import logging
+import matplotlib.pyplot as plt 
 
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -62,15 +63,51 @@ def get_district(district):
     else:
         return district.replace("Localité", "")
     
+def hist_similarity(img1, img2):
+    hist_img1 = cv2.calcHist([img1], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
+    hist_img1[255, 255, 255] = 0 #Ignore white pixels
+    cv2.normalize(hist_img1, hist_img1, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+    hist_img2 = cv2.calcHist([img2], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
+    hist_img2[255, 255, 255] = 0 #Ignore white pixels
+    cv2.normalize(hist_img2, hist_img2, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+    # Find the metric value
+    return cv2.compareHist(hist_img1, hist_img2, cv2.HISTCMP_CORREL)
+
+def orb_similarity(img1, img2):
+    orb = cv2.ORB_create()
+
+    kp_img1, desc_img1 = orb.detectAndCompute(img1, None)
+    kp_img2, desc_img2 = orb.detectAndCompute(img2, None)
+
+    #bruteforce matcher
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+    matches = bf.match(desc_img1, desc_img2)
+
+    #Decomment only for testing purpose
+    # matches = sorted(matches, key=lambda x: x.distance)
+    # nMatches = 10
+    # imgMatch = cv2.drawMatches(img1, kp_img1, img2, kp_img2, matches[:nMatches], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    # return imgMatch
+
+    similar_regions = [i for i in matches if i.distance < 50]
+    if len(matches) == 0:
+        return 0
+    return len(similar_regions) / len(matches)
+    
 def treat_athome_duplicates(df):
     df.sort_values(by=["Price", "Surface"])
 
     i = 0
     df_len = len(df)
 
+    logging.info("Athome duplicates treatment")
+
     #Using a while in order to change the incrementation value
     while i < df_len:
-        latest_duplicate_index = i
+        latest_duplicate_index = i + 1
         #The count of duplicated elements compared to i
         duplicates_count = 0
 
@@ -81,12 +118,14 @@ def treat_athome_duplicates(df):
 
         for j in range (i+1, df_len):
             surface_diff = df.loc[j, "Surface"] - df.loc[i, "Surface"]
-            surface_diff_threshold = 4
+            surface_diff_threshold = 5
             if df.loc[i, "Price"] != df.loc[j, "Price"] or surface_diff > surface_diff_threshold:
                 break
 
             if pd.isna(df.loc[j, "Photos"]):
                 continue
+
+            logging.info(f"Comparison between accomodation line {i+2} and accomodation line {j+2}")
 
             i_photos_url = df.loc[i, "Photos"].split(" ")
             j_photos_url = df.loc[j, "Photos"].split(" ")
@@ -100,17 +139,22 @@ def treat_athome_duplicates(df):
                     j_photo_request = urllib.request.urlopen(j_photo_url)
                     j_photo = cv2.imdecode(np.asarray(bytearray(j_photo_request.read()), dtype=np.uint8), -1)
 
-                    hist_i_photo = cv2.calcHist([i_photo], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
-                    hist_i_photo[255, 255, 255] = 0 #Ignore white pixels
-                    cv2.normalize(hist_i_photo, hist_i_photo, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
 
-                    hist_j_photo = cv2.calcHist([j_photo], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
-                    hist_j_photo[255, 255, 255] = 0 #Ignore white pixels
-                    cv2.normalize(hist_j_photo, hist_j_photo, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+                    metric_val = hist_similarity(i_photo, j_photo)
+                    logging.info(f"\tHist similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 2)}")
+                    # print(f"Hist Similarity Score: ", )
 
-                    # Find the metric value
-                    metric_val = cv2.compareHist(hist_i_photo, hist_j_photo, cv2.HISTCMP_CORREL)
-                    # print(f"Similarity Score: ", round(metric_val, 2))
+                    #Decomment only for testing purpose
+                    # ret_value = orb_similarity(i_photo, j_photo)
+
+                    # plt.figure()
+                    # plt.imshow(ret_value)
+                    # plt.show()
+
+                    metric_val = orb_similarity(i_photo, j_photo)
+                    logging.info(f"\tORB similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 2)}")
+
+                    # print(f"ORB Similarity Score: ", round(metric_val, 2))
 
                     exactness_threshold = 0.90
 
@@ -127,7 +171,6 @@ def treat_athome_duplicates(df):
                 
                 if latest_duplicate_index == j:
                     break
-        print(f"i : {i}")
         i+=1
 
 def immotop_lu_data_cleaning():
@@ -213,4 +256,4 @@ def athome_lu_data_cleaning():
 
     df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv", index=False)
 
-# athome_lu_data_cleaning()
+athome_lu_data_cleaning()

@@ -105,6 +105,8 @@ def extract_athome_data():
                     item["City"] = properties[i].find("span", class_="property-card-immotype-location-city").get_text()
                     item["Link"] = "https://www.athome.lu" + href
 
+                    logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
+
                     if "apartment" in item["Link"]:
                         item["Type"] = "Apartment"
                     elif "house" in item["Link"]:
@@ -286,14 +288,14 @@ def extract_athome_data():
                     
                     #To accept the cookies the first time
                     if first_session:
-                        WebDriverWait(driver, 5).until(
+                        WebDriverWait(driver, 15).until(
                             EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler"))
                         )
                         accept_cookies = driver.find_element(By.ID, "onetrust-accept-btn-handler")
                         accept_cookies.click()
 
                         first_session = False
-                    WebDriverWait(driver, 5).until(
+                    WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery"))
                     )
                     desktop_gallery = driver.find_element(By.CLASS_NAME, "showHideDesktopGallery")
@@ -311,9 +313,8 @@ def extract_athome_data():
                     item["Photos"] = item["Photos"].rstrip()
                     
                     accomodations.append(item)
-            current_page+=1
-
             logging.info("Page " + str(current_page) + " of athome.lu has entirely been scrapped !")
+            current_page+=1
     
     driver.quit()
     
@@ -413,8 +414,8 @@ def extract_immotop_lu_data():
             
                 accomodations.append(item)
 
-            current_page += 1
             logging.info("Page " + str(current_page) + " of immotop.lu has entirely been scrapped !")
+            current_page += 1
     
     #Persistance of data
     today = str(date.today())
