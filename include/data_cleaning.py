@@ -6,7 +6,8 @@ import os
 import cv2
 import numpy as np
 import logging
-import matplotlib.pyplot as plt 
+import sys
+import matplotlib.pyplot as plt
 
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -75,30 +76,28 @@ def hist_similarity(img1, img2):
     # Find the metric value
     return cv2.compareHist(hist_img1, hist_img2, cv2.HISTCMP_CORREL)
 
-def orb_similarity(img1, img2):
-    orb = cv2.ORB_create()
+def sift_similarity(img1, img2):
+    sift = cv2.SIFT_create(nfeatures=500)
 
-    kp_img1, desc_img1 = orb.detectAndCompute(img1, None)
-    kp_img2, desc_img2 = orb.detectAndCompute(img2, None)
+    #Image preprocessing
+    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
-    #bruteforce matcher
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    #Improve the contrasts
 
-    matches = bf.match(desc_img1, desc_img2)
+    kp_img1, desc_img1 = sift.detectAndCompute(img1, None)
+    kp_img2, desc_img2 = sift.detectAndCompute(img2, None)
 
-    #Decomment only for testing purpose
-    # matches = sorted(matches, key=lambda x: x.distance)
-    # nMatches = 10
-    # imgMatch = cv2.drawMatches(img1, kp_img1, img2, kp_img2, matches[:nMatches], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-    # return imgMatch
+    bf = cv2.BFMatcher(cv2.NORM_L2)
+    matches = bf.knnMatch(desc_img1, desc_img2, k=2)
+    good_matches = [m for m, n in matches if m.distance < 0.5 * n.distance]
 
-    similar_regions = [i for i in matches if i.distance < 50]
     if len(matches) == 0:
         return 0
-    return len(similar_regions) / len(matches)
+    return len(good_matches) / max(len(kp_img1), len(kp_img2))
     
 def treat_athome_duplicates(df):
-    df.sort_values(by=["Price", "Surface"])
+    df = df.sort_values(by=["Price", "Surface"]).reset_index(drop=True)
 
     i = 0
     df_len = len(df)
@@ -107,7 +106,6 @@ def treat_athome_duplicates(df):
 
     #Using a while in order to change the incrementation value
     while i < df_len:
-        latest_duplicate_index = i + 1
         #The count of duplicated elements compared to i
         duplicates_count = 0
 
@@ -130,6 +128,10 @@ def treat_athome_duplicates(df):
             i_photos_url = df.loc[i, "Photos"].split(" ")
             j_photos_url = df.loc[j, "Photos"].split(" ")
 
+            #Initialization of variables so they are accessible in the external for loops
+            metric_val = 0
+            exactness_threshold = 0.90
+
             for i_photo_url in i_photos_url:
                 for j_photo_url in j_photos_url:
                     #Get the images from url
@@ -139,9 +141,8 @@ def treat_athome_duplicates(df):
                     j_photo_request = urllib.request.urlopen(j_photo_url)
                     j_photo = cv2.imdecode(np.asarray(bytearray(j_photo_request.read()), dtype=np.uint8), -1)
 
-
-                    metric_val = hist_similarity(i_photo, j_photo)
-                    logging.info(f"\tHist similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 2)}")
+                    # metric_val = hist_similarity(i_photo, j_photo)
+                    # logging.info(f"\tHist similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 2)}")
                     # print(f"Hist Similarity Score: ", )
 
                     #Decomment only for testing purpose
@@ -151,25 +152,19 @@ def treat_athome_duplicates(df):
                     # plt.imshow(ret_value)
                     # plt.show()
 
-                    metric_val = orb_similarity(i_photo, j_photo)
-                    logging.info(f"\tORB similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 2)}")
-
-                    # print(f"ORB Similarity Score: ", round(metric_val, 2))
-
-                    exactness_threshold = 0.90
+                    metric_val = sift_similarity(i_photo, j_photo)
+                    logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 3)}")
 
                     if metric_val >= exactness_threshold:
                         duplicates_count += 1
                         df.loc[j, "Duplicate_rank"] = duplicates_count + 1
 
                         #Allow to skip the series of adjacent duplicates
-                        if j - latest_duplicate_index == 1:
+                        if (j - i) == duplicates_count:
                             i = j
-                        
-                        latest_duplicate_index = j
                         break
                 
-                if latest_duplicate_index == j:
+                if metric_val >= exactness_threshold:
                     break
         i+=1
 
@@ -192,6 +187,8 @@ def immotop_lu_data_cleaning():
         "Estate agency fee" : "Agency_fees",
         "Condominium fees" : "Condominium_fees"
     }
+
+    df.drop_duplicates(subset=["Link"], inplace=True)
 
     df.rename(columns=column_names, inplace=True)
 
@@ -236,7 +233,7 @@ def athome_lu_data_cleaning():
     airflow_home = os.environ["AIRFLOW_HOME"]
 
     df = pd.read_csv(
-        f"{airflow_home}/dags/data/raw/athome_last3d_{today}.csv",
+        f"{airflow_home}/dags/data/raw/athome_last3d_2024-12-14.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -244,6 +241,15 @@ def athome_lu_data_cleaning():
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
             "Garages" : "Int64"})
+
+    lines_before_duplicates_removal = len(df)
+
+    #Drop duplicated rows
+    df = df.drop_duplicates(subset=["Link"])
+
+    lines_after_duplicates_removal = len(df)
+
+    logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
 
     #Introduction of a new column that will be used to identify the duplicates later on
     #1 is the default value (= no other duplicates)
@@ -254,6 +260,6 @@ def athome_lu_data_cleaning():
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
-    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_2024-12-14.csv", index=False)
 
-athome_lu_data_cleaning()
+# athome_lu_data_cleaning()

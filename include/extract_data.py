@@ -282,20 +282,23 @@ def extract_athome_data():
                     #Change user-agent to avoid detection
                     # driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": selenium_user_agent[i % 2]})
 
-                    WebDriverWait(driver, 2)
+                    # WebDriverWait(driver, 2)
                     #Because the DOM can change due to responsiveness
                     driver.get(item["Link"])
+
+                    #Time to wait before timeout
+                    max_waiting_time = 20
                     
                     #To accept the cookies the first time
                     if first_session:
-                        WebDriverWait(driver, 15).until(
+                        WebDriverWait(driver, max_waiting_time).until(
                             EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler"))
                         )
                         accept_cookies = driver.find_element(By.ID, "onetrust-accept-btn-handler")
                         accept_cookies.click()
 
                         first_session = False
-                    WebDriverWait(driver, 15).until(
+                    WebDriverWait(driver, max_waiting_time).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery"))
                     )
                     desktop_gallery = driver.find_element(By.CLASS_NAME, "showHideDesktopGallery")
