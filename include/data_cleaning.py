@@ -63,38 +63,30 @@ def get_district(district):
         return pd.NA
     else:
         return district.replace("Localité", "")
-    
-def hist_similarity(img1, img2):
-    hist_img1 = cv2.calcHist([img1], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
-    hist_img1[255, 255, 255] = 0 #Ignore white pixels
-    cv2.normalize(hist_img1, hist_img1, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-
-    hist_img2 = cv2.calcHist([img2], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
-    hist_img2[255, 255, 255] = 0 #Ignore white pixels
-    cv2.normalize(hist_img2, hist_img2, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-
-    # Find the metric value
-    return cv2.compareHist(hist_img1, hist_img2, cv2.HISTCMP_CORREL)
 
 def sift_similarity(img1, img2):
-    sift = cv2.SIFT_create(nfeatures=500)
+    nfeatures = 500
+    sift = cv2.SIFT_create(nfeatures=nfeatures)
 
     #Image preprocessing
     img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
-    #Improve the contrasts
-
     kp_img1, desc_img1 = sift.detectAndCompute(img1, None)
     kp_img2, desc_img2 = sift.detectAndCompute(img2, None)
 
-    bf = cv2.BFMatcher(cv2.NORM_L2)
-    matches = bf.knnMatch(desc_img1, desc_img2, k=2)
-    good_matches = [m for m, n in matches if m.distance < 0.5 * n.distance]
+    index_params = dict(algorithm=1, trees=5)  # K-D Tree (algorithm=1). Increase "trees" value to improve precision, decrease to improve speed
+    search_params = dict(checks=50)  #Amount of comparison. Increase to improve precision, decrease to improve speed
+
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+    # bf = cv2.BFMatcher(cv2.NORM_L2)
+    matches = flann.knnMatch(desc_img1, desc_img2, k=2)
+    good_matches = [m for m, n in matches if m.distance < 0.3 * n.distance]
 
     if len(matches) == 0:
         return 0
-    return len(good_matches) / max(len(kp_img1), len(kp_img2))
+    return len(good_matches) / nfeatures
     
 def treat_athome_duplicates(df):
     df = df.sort_values(by=["Price", "Surface"]).reset_index(drop=True)
@@ -117,7 +109,11 @@ def treat_athome_duplicates(df):
         for j in range (i+1, df_len):
             surface_diff = df.loc[j, "Surface"] - df.loc[i, "Surface"]
             surface_diff_threshold = 5
+
             if df.loc[i, "Price"] != df.loc[j, "Price"] or surface_diff > surface_diff_threshold:
+                #Skip duplicates
+                if duplicates_count > 0 and (j - i) == duplicates_count + 1:
+                    i = j - 1
                 break
 
             if pd.isna(df.loc[j, "Photos"]):
@@ -141,17 +137,6 @@ def treat_athome_duplicates(df):
                     j_photo_request = urllib.request.urlopen(j_photo_url)
                     j_photo = cv2.imdecode(np.asarray(bytearray(j_photo_request.read()), dtype=np.uint8), -1)
 
-                    # metric_val = hist_similarity(i_photo, j_photo)
-                    # logging.info(f"\tHist similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 2)}")
-                    # print(f"Hist Similarity Score: ", )
-
-                    #Decomment only for testing purpose
-                    # ret_value = orb_similarity(i_photo, j_photo)
-
-                    # plt.figure()
-                    # plt.imshow(ret_value)
-                    # plt.show()
-
                     metric_val = sift_similarity(i_photo, j_photo)
                     logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 3)}")
 
@@ -159,14 +144,17 @@ def treat_athome_duplicates(df):
                         duplicates_count += 1
                         df.loc[j, "Duplicate_rank"] = duplicates_count + 1
 
-                        #Allow to skip the series of adjacent duplicates
-                        if (j - i) == duplicates_count:
-                            i = j
                         break
                 
                 if metric_val >= exactness_threshold:
                     break
+            
+            #Allow to skip the series of adjacent duplicates
+            if duplicates_count > 0 and (j - i) == duplicates_count + 1:
+                i = j - 1
+
         i+=1
+    return df
 
 def immotop_lu_data_cleaning():
     today = str(date.today())
@@ -229,11 +217,12 @@ def immotop_lu_data_cleaning():
     df.to_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{today}.csv", index=False)
 
 def athome_lu_data_cleaning():
-    today = str(date.today())
+    #today = str(date.today())
+    today = '2024-12-14'
     airflow_home = os.environ["AIRFLOW_HOME"]
 
     df = pd.read_csv(
-        f"{airflow_home}/dags/data/raw/athome_last3d_2024-12-14.csv",
+        f"{airflow_home}/dags/data/raw/athome_last3d_{today}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -255,11 +244,11 @@ def athome_lu_data_cleaning():
     #1 is the default value (= no other duplicates)
     df["Duplicate_rank"] = 1
     
-    treat_athome_duplicates(df)
+    df = treat_athome_duplicates(df)
 
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
-    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_2024-12-14.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv", index=False)
 
 # athome_lu_data_cleaning()

@@ -282,7 +282,7 @@ def extract_athome_data():
                     #Change user-agent to avoid detection
                     # driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": selenium_user_agent[i % 2]})
 
-                    # WebDriverWait(driver, 2)
+                    WebDriverWait(driver, 2)
                     #Because the DOM can change due to responsiveness
                     driver.get(item["Link"])
 
