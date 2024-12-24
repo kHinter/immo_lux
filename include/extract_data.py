@@ -414,6 +414,19 @@ def extract_immotop_lu_data():
                     agency_p = agency_frame.find("p")
                     if agency_p != None:
                         item["Agency"] = agency_p.get_text()
+
+                item["Photos"] = ""
+
+                first_img_url = details.find("img", "nd-figure__content nd-ratio__img").get("src")
+                if not first_img_url.startswith("/_next/"):
+                    item["Photos"] += first_img_url + " "
+
+                slideshow_items = details.find_all("div", "nd-slideshow__item")
+                
+                for slideshow_item in slideshow_items:
+                    item["Photos"] += slideshow_item.find("img").get("src") + " "
+                
+                item["Photos"] = item["Photos"].rstrip()
             
                 accomodations.append(item)
 
