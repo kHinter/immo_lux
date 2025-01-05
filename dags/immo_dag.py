@@ -15,6 +15,7 @@ from include.extract_data import extract_immotop_lu_data, extract_athome_data
 from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_cleaning
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
 from include.reports import generate_report
+from include.duplicates_treatment import merge_all_df_and_treat_duplicates
 
 default_args = {
     "owner" : "airflow",
@@ -64,6 +65,11 @@ with DAG(
         python_callable=athome_lu_enrichment
     )
 
+    treat_duplicates = PythonOperator(
+        task_id = "merge_all_df_and_treat_duplicates",
+        python_callable=merge_all_df_and_treat_duplicates
+    )
+
     gen_report = PythonOperator(
         task_id = "generate_report",
         python_callable=generate_report,
@@ -74,3 +80,6 @@ with DAG(
 
     athome_lu_data_enrichment >> gen_report
     immotop_lu_data_enrichment >> gen_report
+
+    athome_lu_data_enrichment >> treat_duplicates
+    immotop_lu_data_enrichment >> treat_duplicates

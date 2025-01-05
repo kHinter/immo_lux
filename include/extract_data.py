@@ -424,7 +424,10 @@ def extract_immotop_lu_data():
                 slideshow_items = details.find_all("div", "nd-slideshow__item")
                 
                 for slideshow_item in slideshow_items:
-                    item["Photos"] += slideshow_item.find("img").get("src") + " "
+                    img_url = slideshow_item.find("img").get("src")
+                    #Make sure that I don't include two times the same image in the df
+                    if not img_url in item["Photos"]:
+                        item["Photos"] += img_url + " "
                 
                 item["Photos"] = item["Photos"].rstrip()
             

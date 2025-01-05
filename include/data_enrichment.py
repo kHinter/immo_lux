@@ -173,3 +173,4 @@ def athome_lu_enrichment():
     df.to_csv(f"{airflow_home}/dags/data/enriched/athome_last3d_{today}.csv", index=False)
 
 # immotop_lu_enrichment()
+# athome_lu_enrichment()
