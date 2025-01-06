@@ -64,7 +64,7 @@ def merge_all_df_and_treat_duplicates():
     #1 is the default value (= no other duplicates)
     df["Duplicate_rank"] = 1
 
-    df = df.sort_values(by=["Price", "Bedrooms", "Surface"]).reset_index(drop=True)
+    df = df.sort_values(by=["Price", "Bedrooms", "Bathroom", "Surface"]).reset_index(drop=True)
 
     #Variables initialization
     adjacent_districts = {
@@ -121,7 +121,8 @@ def merge_all_df_and_treat_duplicates():
             surface_diff_threshold = 5
 
             if (df.loc[i, "Price"] != df.loc[j, "Price"] 
-            or (pd.notna(df.loc[i, "Bedrooms"]) and pd.notna(df.loc[j, "Bedrooms"]) and df.loc[i, "Bedrooms"] != df.loc[j, "Bedrooms"]) 
+            or pd.notna(df.loc[i, "Bedrooms"]) and pd.notna(df.loc[j, "Bedrooms"]) and df.loc[i, "Bedrooms"] != df.loc[j, "Bedrooms"]
+            or pd.notna(df.loc[i, "Bathroom"]) and pd.notna(df.loc[j, "Bathroom"]) and df.loc[i, "Bathroom"] != df.loc[j, "Bathroom"]
             or surface_diff > surface_diff_threshold):
                 #Allow to skip series of duplicates
                 if duplicates_count > 0 and (j - i) == duplicates_count + 1:
@@ -157,15 +158,28 @@ def merge_all_df_and_treat_duplicates():
             metric_val = 0
             exactness_threshold = 0.07
 
+            j_loaded_photos = {}
+
+            #Pre-load the j accomodation photos to save computation time
+            for j_photo_url in j_photos_url:
+                j_photo_request = fetch_url_with_retries(j_photo_url)
+
+                #If the requests for j failed skip to j + 1
+                if j_photo_request.status_code != 200:
+                    continue
+
+                j_loaded_photos[j_photo_url] = cv2.imdecode(np.asarray(bytearray(j_photo_request.content), dtype=np.uint8), -1)
+                
             for i_photo_url in i_photos_url:
-                for j_photo_url in j_photos_url:
-                    #Get the images from url
-                    i_photo_request = fetch_url_with_retries(i_photo_url)
-                    i_photo = cv2.imdecode(np.asarray(bytearray(i_photo_request.content), dtype=np.uint8), -1)
+                #Get the photo via HTML request
+                i_photo_request = fetch_url_with_retries(i_photo_url)
+                    
+                #If the requests for i failed skip to i + 1
+                if i_photo_request.status_code != 200:
+                    continue
+                i_photo = cv2.imdecode(np.asarray(bytearray(i_photo_request.content), dtype=np.uint8), -1)
 
-                    j_photo_request = fetch_url_with_retries(j_photo_url)
-                    j_photo = cv2.imdecode(np.asarray(bytearray(j_photo_request.content), dtype=np.uint8), -1)
-
+                for j_photo_url, j_photo in j_loaded_photos.items():
                     metric_val = sift_similarity(i_photo, j_photo)
                     logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 3)}")
 
