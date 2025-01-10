@@ -3,3 +3,4 @@ dags/data/cleaned/*
 dags/data/enriched*
 dags/reports/*
 dags/deduplicated/*
+__pycache__/
