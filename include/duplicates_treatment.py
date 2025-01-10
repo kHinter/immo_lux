@@ -6,7 +6,7 @@ import os
 from datetime import date
 
 #Custom modules
-import utils
+from . import utils
 
 def sift_similarity(img1, img2):
     nfeatures = 500

@@ -1,7 +1,9 @@
 from datetime import date
 import logging
 import os
-import utils
+
+#Custom modules
+from . import utils
 
 def extract_athome_data():
     #Import here to optimize the DAG preprocessing
@@ -13,7 +15,6 @@ def extract_athome_data():
     from selenium.webdriver.common.by import By
     from selenium.common.exceptions import NoSuchElementException
 
-    import requests
     import pandas as pd
     from bs4 import BeautifulSoup
 
@@ -79,7 +80,7 @@ def extract_athome_data():
 
     while proceed:
         current_url = 'https://www.athome.lu/en/srp/?tr=rent&sort=price_asc&recent_published=3&q=faee1a4a&loc=L2-luxembourg&page=' + str(current_page)
-        page = requests.get(current_url, headers=headers)
+        page = utils.fetch_url_with_retries(current_url, headers=headers)
 
         s = BeautifulSoup (page.text, "html.parser")
 
@@ -363,7 +364,7 @@ def extract_immotop_lu_data():
 
     logging.info("Scraping of immotop.lu has started !")
     while proceed:
-        page = fetch_url_with_retries("https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag=" + str(current_page), headers=headers)
+        page = utils.fetch_url_with_retries("https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag=" + str(current_page), headers=headers)
         s = BeautifulSoup (page.text, "html.parser")
 
         if s.find("div", "nd-alert nd-alert--warning in-errorMessage__alert in-errorMessage__title") != None:
