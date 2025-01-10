@@ -1,11 +1,12 @@
 import logging
 import cv2
-import requests
 import numpy as np
 import pandas as pd
 import os
 from datetime import date
-import time
+
+#Custom modules
+import utils
 
 def sift_similarity(img1, img2):
     nfeatures = 500
@@ -30,14 +31,6 @@ def sift_similarity(img1, img2):
     if len(matches) == 0:
         return 0
     return len(good_matches) / nfeatures
-
-def fetch_url_with_retries(url, retries=3, delay=3):
-    for attempt in range(retries):
-        try:
-            return requests.get(url, timeout=5)
-        except requests.exceptions.ReadTimeout:
-            time.sleep(delay)
-
     
 def merge_all_df_and_treat_duplicates():
     #Retrieve all df
@@ -162,7 +155,7 @@ def merge_all_df_and_treat_duplicates():
 
             #Pre-load the j accomodation photos to save computation time
             for j_photo_url in j_photos_url:
-                j_photo_request = fetch_url_with_retries(j_photo_url)
+                j_photo_request = utils.fetch_url_with_retries(j_photo_url)
 
                 #If the requests for j failed skip to j + 1
                 if j_photo_request.status_code != 200:
@@ -172,7 +165,7 @@ def merge_all_df_and_treat_duplicates():
                 
             for i_photo_url in i_photos_url:
                 #Get the photo via HTML request
-                i_photo_request = fetch_url_with_retries(i_photo_url)
+                i_photo_request = utils.fetch_url_with_retries(i_photo_url)
                     
                 #If the requests for i failed skip to i + 1
                 if i_photo_request.status_code != 200:

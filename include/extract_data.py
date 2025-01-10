@@ -1,13 +1,13 @@
 from datetime import date
 import logging
 import os
+import utils
 
 def extract_athome_data():
     #Import here to optimize the DAG preprocessing
     from selenium import webdriver
     from selenium.webdriver.chrome.service import Service
     from selenium.webdriver.chrome.options import Options
-
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.common.by import By
@@ -125,7 +125,7 @@ def extract_athome_data():
                             item["District"] = splitted_str[1]
 
                     #Go in the detail page to get additionnal informations
-                    page = requests.get(item["Link"], headers=headers)
+                    page = utils.fetch_url_with_retries(item["Link"], headers=headers)
                     details = BeautifulSoup(page.text, "html.parser")
                     
                     description = details.find("div", "collapsed")
@@ -269,6 +269,16 @@ def extract_athome_data():
                             item["Insulation_class"] = insulation_class.get_text()
                         else:
                             item["Insulation_class"] = None
+                    
+                    adress_div = details.find("div", "block-localisation-address")
+                    if adress_div != None:
+                        full_adress = adress_div.getText()
+
+                        #For debugging purpose only
+                        print(full_adress)
+                        
+                        if full_adress.count(",") >= 2:
+                            item["Adress"] = full_adress
 
                     agency = details.find("div", class_="agency-details__name agency-details__name--centered")
                     if agency != None:
@@ -278,9 +288,6 @@ def extract_athome_data():
 
                     #Add the photos of the accomodation to the dataframe
                     item["Photos"] = ""
-
-                    #Change user-agent to avoid detection
-                    # driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": selenium_user_agent[i % 2]})
 
                     WebDriverWait(driver, 2)
                     #Because the DOM can change due to responsiveness
@@ -334,7 +341,6 @@ def extract_athome_data():
 
 def extract_immotop_lu_data():
     #Import here to optimize the DAG preprocessing
-    import requests
     import pandas as pd
     from bs4 import BeautifulSoup
 
@@ -357,7 +363,7 @@ def extract_immotop_lu_data():
 
     logging.info("Scraping of immotop.lu has started !")
     while proceed:
-        page = requests.get("https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag=" + str(current_page), headers=headers)
+        page = fetch_url_with_retries("https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag=" + str(current_page), headers=headers)
         s = BeautifulSoup (page.text, "html.parser")
 
         if s.find("div", "nd-alert nd-alert--warning in-errorMessage__alert in-errorMessage__title") != None:
@@ -365,23 +371,25 @@ def extract_immotop_lu_data():
         else:
             properties = s.find("ul", "nd-list in-searchLayoutList ls-results").find_all("li", "nd-list__item in-searchLayoutListItem")
 
-            for property in properties:
+            for i in range(len(properties)):
                 item = {}
 
-                listing_card_title = property.find("a", "in-listingCardTitle")
+                listing_card_title = properties[i].find("a", "in-listingCardTitle")
                 if listing_card_title != None:
                     item["Link"] = listing_card_title.attrs["href"]
                 else:
                     continue
 
                 #Go in the detail page to get additionnal informations
-                page = requests.get(item["Link"], headers=headers)
+                page = utils.fetch_url_with_retries(item["Link"], headers=headers)
                 details = BeautifulSoup(page.text, "html.parser")
 
                 title = details.find("h1", "re-title__title")
                 #If title is None then the page contains no other data so we skip it
                 if title == None:
                     continue
+
+                logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
                 
                 read_all = details.find("div", "in-readAll in-readAll--lessContent")
                 if read_all != None:

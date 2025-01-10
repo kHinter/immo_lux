@@ -147,6 +147,9 @@ def athome_lu_data_cleaning():
     df["City"] = df["City"].apply(lambda city : city.strip())
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
+    #Determine the street name and/or street number
+    # df["Street"] = df["Adress"].apply(lambda adress: )
+
     lines_before_duplicates_removal = len(df)
 
     #Drop duplicated rows
