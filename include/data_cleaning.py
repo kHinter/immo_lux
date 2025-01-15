@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import date
+import numpy as np
 import re
 import os
 import logging
@@ -131,6 +132,7 @@ def immotop_lu_data_cleaning():
 
 def athome_lu_data_cleaning():
     today = str(date.today())
+    # today = "2025-01-10"
     airflow_home = os.environ["AIRFLOW_HOME"]
 
     df = pd.read_csv(
@@ -147,8 +149,13 @@ def athome_lu_data_cleaning():
     df["City"] = df["City"].apply(lambda city : city.strip())
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
+    df["Surface"] = df["Surface"].apply(lambda surface : surface.replace(",", "."))
+
     #Determine the street name and/or street number
     # df["Street"] = df["Adress"].apply(lambda adress: )
+
+    #Replace "Centre ville" values by NA because they are not reliable (don't always reflect the real district)
+    df["District"] = df["District"].replace("Centre ville", pd.NA)
 
     lines_before_duplicates_removal = len(df)
 

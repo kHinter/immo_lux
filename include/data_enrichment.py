@@ -144,6 +144,7 @@ def immotop_lu_enrichment():
 
 def athome_lu_enrichment():
     today = str(date.today())
+    # today = "2025-01-10"
     airflow_home = os.environ["AIRFLOW_HOME"]
     
     df = pd.read_csv(

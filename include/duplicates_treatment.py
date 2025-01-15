@@ -4,9 +4,12 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import date
+# import sys
 
 #Custom modules
 from . import utils
+
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def sift_similarity(img1, img2):
     nfeatures = 500
@@ -34,8 +37,8 @@ def sift_similarity(img1, img2):
     
 def merge_all_df_and_treat_duplicates():
     #Retrieve all df
-    # today = str(date.today())
-    today = "2025-01-02"
+    today = str(date.today())
+    # today = "2025-01-10"
     airflow_home = os.environ["AIRFLOW_HOME"]
 
     df_athome = pd.read_csv(
@@ -130,7 +133,7 @@ def merge_all_df_and_treat_duplicates():
                 i_district = df.loc[i, "District"]
                 j_district = df.loc[j, "District"]
 
-                if i_district != j_district and j_district not in adjacent_districts[i_city][i_district]:
+                if pd.notna(i_district) and pd.notna(j_district) and i_district != j_district and j_district not in adjacent_districts[i_city][i_district]:
                     continue
             
             #Skip the current j line duplicate treatment if both cities are not adjacent

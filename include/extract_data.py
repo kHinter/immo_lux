@@ -23,7 +23,6 @@ def extract_athome_data():
     proceed = True
     current_page = 1
     translate_table_price = str.maketrans("", "", "€ \u202f\xa0'")
-    excluded_categories = ("garage-parking", "office", "commercial-property")
 
     ###SELENIUM SETUP####
 
@@ -59,12 +58,6 @@ def extract_athome_data():
     chrome_options.binary_location = binary_location
     service = Service(executable_path=driver_location)
     driver = webdriver.Chrome(service=service, options=chrome_options)
-
-    #To change the user agents
-    # selenium_user_agent = [
-    #     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-    #     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"
-    # ]
     
     # changing the property of the navigator value for webdriver to undefined 
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -79,7 +72,7 @@ def extract_athome_data():
     logging.info("Scraping of athome.lu has started !")
 
     while proceed:
-        current_url = 'https://www.athome.lu/en/srp/?tr=rent&sort=price_asc&recent_published=3&q=faee1a4a&loc=L2-luxembourg&page=' + str(current_page)
+        current_url = 'https://www.athome.lu/en/srp/?tr=rent&sort=price_asc&recent_published=3&q=faee1a4a&loc=L2-luxembourg&ptypes=house,flat,new-property,build&page=' + str(current_page)
         page = utils.fetch_url_with_retries(current_url, headers=headers)
 
         s = BeautifulSoup (page.text, "html.parser")
@@ -99,8 +92,8 @@ def extract_athome_data():
                 surface = characterstics.find("li", class_="item-surface")
                 href = properties[i].find("a", class_="property-card-link property-title").attrs["href"]
                 
-                #Ensure that every property to include possess a surface and are not categorized as garage / parking or office
-                if surface != None and all(excluded_category not in href for excluded_category in excluded_categories):
+                #Ensure that every property to include possess a surface
+                if surface != None:
                     item["Price"] = properties[i].find("span", class_="font-semibold whitespace-nowrap").get_text().translate(translate_table_price).replace(",", "")
                     item["Surface"] = surface.get_text().replace("m²", "").strip()
                     item["City"] = properties[i].find("span", class_="property-card-immotype-location-city").get_text()
@@ -290,7 +283,7 @@ def extract_athome_data():
                     #Add the photos of the accomodation to the dataframe
                     item["Photos"] = ""
 
-                    WebDriverWait(driver, 2)
+                    WebDriverWait(driver, 1.5)
                     #Because the DOM can change due to responsiveness
                     driver.get(item["Link"])
 
