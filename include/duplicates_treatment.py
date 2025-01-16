@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import date
-# import sys
+import sys
 
 #Custom modules
 from . import utils
@@ -94,8 +94,20 @@ def merge_all_df_and_treat_duplicates():
     adjacent_cities = {
         "Luxembourg" : ["Strassen", "Bertrange", "Leudelange", "Roeser", "Hesperange", "Sandweiler", "Niederanven", "Walferdange", "Kopstal"],
         "Esch-sur-Alzette" : ["Sanem", "Mondercange", "Schifflange" "Kayl", "Rumelange"],
-        "Strassen" : ["Mamer", "Kehlen", "Kopstal", "Luxembourg", "Bertrange"]
+        "Strassen" : ["Mamer", "Kehlen", "Kopstal", "Luxembourg", "Bertrange"],
+        "Hesperange" : ["Luxembourg", "Roeser", "Weiler-la-Tour", "Contern", "Sandweiler"],
+        "Differdange" : ["Pétange", "Käerjeng", "Sanem"],
+        "Walferdange" : ["Kopstal", "Steinsel", "Luxembourg"],
+        "Sanem" : ["Differdange", "Käerjeng", "Dippach", "Reckange-sur-Mess", "Mondercange", "Esch-sur-Alzette"]
     }
+
+    ##Constants
+
+    surface_diff_threshold = 5
+    photos_exactness_threshold = 0.07
+    #To limit the amount of photos compared and reduce the similarity comparison computation time
+    max_photos_treated_per_accomodation = 11
+
 
     i = 0
     df_len = len(df)
@@ -114,7 +126,6 @@ def merge_all_df_and_treat_duplicates():
 
         for j in range (i+1, df_len):
             surface_diff = df.loc[j, "Surface"] - df.loc[i, "Surface"]
-            surface_diff_threshold = 5
 
             if (df.loc[i, "Price"] != df.loc[j, "Price"] 
             or pd.notna(df.loc[i, "Bedrooms"]) and pd.notna(df.loc[j, "Bedrooms"]) and df.loc[i, "Bedrooms"] != df.loc[j, "Bedrooms"]
@@ -147,12 +158,13 @@ def merge_all_df_and_treat_duplicates():
 
             logging.info(f"Comparison between accomodation line {i+2} and accomodation line {j+2}")
 
-            i_photos_url = df.loc[i, "Photos"].split(" ")
-            j_photos_url = df.loc[j, "Photos"].split(" ")
+
+
+            i_photos_url = df.loc[i, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
+            j_photos_url = df.loc[j, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
 
             #Initialization of variables so they are accessible in the external for loops
             metric_val = 0
-            exactness_threshold = 0.07
 
             j_loaded_photos = {}
 
@@ -179,12 +191,12 @@ def merge_all_df_and_treat_duplicates():
                     metric_val = sift_similarity(i_photo, j_photo)
                     logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 3)}")
 
-                    if metric_val >= exactness_threshold:
+                    if metric_val >= photos_exactness_threshold:
                         duplicates_count += 1
                         df.loc[j, "Duplicate_rank"] = duplicates_count + 1
                         break
                 
-                if metric_val >= exactness_threshold:
+                if metric_val >= photos_exactness_threshold:
                     break
             
             #Allow to skip the series of adjacent duplicates

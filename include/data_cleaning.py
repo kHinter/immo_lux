@@ -154,6 +154,10 @@ def athome_lu_data_cleaning():
     #Determine the street name and/or street number
     # df["Street"] = df["Adress"].apply(lambda adress: )
 
+    df["District"] = df["District"].replace({
+        "Weimershof", "Neudorf-Weimershof"
+    })
+
     #Replace "Centre ville" values by NA because they are not reliable (don't always reflect the real district)
     df["District"] = df["District"].replace("Centre ville", pd.NA)
 
