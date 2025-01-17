@@ -6,6 +6,8 @@ import os
 from datetime import date
 import sys
 
+from airflow.models import Variable
+
 #Custom modules
 from . import utils
 
@@ -34,6 +36,28 @@ def sift_similarity(img1, img2):
     if len(matches) == 0:
         return 0
     return len(good_matches) / nfeatures
+
+def get_city_coordinates(city_name):
+    response = utils.fetch_url_with_retries(f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&countrycode=lu&key={Variable.get('opencage_api_key')}")
+    data = response.json()
+    if data["results"]:
+        coordinates = data["results"][0]["geometry"]
+        return (coordinates["lat"], coordinates["lng"])
+    else:
+        raise ValueError(f"City {city_name} not found")
+
+def calculate_haversine_distance(coord1, coord2):
+    R = 6371
+    lat1, lon1 = coord1
+    lat2, lon2 = coord2
+
+    dlat = np.radians(lat2 - lat1)
+    dlon = np.radians(lon2 - lon1)
+
+    a = np.sin(dlat / 2) * np.sin(dlat / 2) + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2) * np.sin(dlon / 2)
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+    return R * c
     
 def merge_all_df_and_treat_duplicates():
     #Retrieve all df
@@ -101,13 +125,16 @@ def merge_all_df_and_treat_duplicates():
         "Sanem" : ["Differdange", "Käerjeng", "Dippach", "Reckange-sur-Mess", "Mondercange", "Esch-sur-Alzette"]
     }
 
+
+
     ##Constants
 
     surface_diff_threshold = 5
     photos_exactness_threshold = 0.07
     #To limit the amount of photos compared and reduce the similarity comparison computation time
     max_photos_treated_per_accomodation = 11
-
+    #Distance expressed in km
+    distance_between_cities_threshold = 8
 
     i = 0
     df_len = len(df)
@@ -155,10 +182,16 @@ def merge_all_df_and_treat_duplicates():
 
             if pd.isna(df.loc[j, "Photos"]):
                 continue
+            
+            i_city_coords = get_city_coordinates(i_city)
+            j_city_coords = get_city_coordinates(j_city)
+            distance_between_cities = calculate_haversine_distance(i_city_coords, j_city_coords)
+
+            #Skip the current j line duplicate treatment if the distance between the cities is too big
+            if distance_between_cities >= distance_between_cities_threshold:
+                continue
 
             logging.info(f"Comparison between accomodation line {i+2} and accomodation line {j+2}")
-
-
 
             i_photos_url = df.loc[i, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
             j_photos_url = df.loc[j, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
