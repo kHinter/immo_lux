@@ -13,7 +13,7 @@ def extract_athome_data():
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.common.by import By
-    from selenium.common.exceptions import NoSuchElementException
+    from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
     import pandas as pd
     from bs4 import BeautifulSoup
@@ -267,9 +267,6 @@ def extract_athome_data():
                     adress_div = details.find("div", "block-localisation-address")
                     if adress_div != None:
                         full_adress = adress_div.getText()
-
-                        #For debugging purpose only
-                        print(full_adress)
                         
                         if full_adress.count(",") >= 2:
                             item["Adress"] = full_adress
@@ -283,12 +280,12 @@ def extract_athome_data():
                     #Add the photos of the accomodation to the dataframe
                     item["Photos"] = ""
 
-                    WebDriverWait(driver, 1.5)
+                    WebDriverWait(driver, 1)
                     #Because the DOM can change due to responsiveness
                     driver.get(item["Link"])
 
                     #Time to wait before timeout
-                    max_waiting_time = 20
+                    max_waiting_time = 10
                     
                     #To accept the cookies the first time
                     if first_session:
@@ -299,20 +296,29 @@ def extract_athome_data():
                         accept_cookies.click()
 
                         first_session = False
+
                     WebDriverWait(driver, max_waiting_time).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery"))
                     )
                     desktop_gallery = driver.find_element(By.CLASS_NAME, "showHideDesktopGallery")
-                    ul_photos = desktop_gallery.find_element(By.TAG_NAME, "ul")
-                        
-                    #Find picture first instead of img to avoid the maps
-                    for picture in ul_photos.find_elements(By.TAG_NAME, "picture"):
-                        try:
+
+                    try:
+                        WebDriverWait(driver, max_waiting_time).until(
+                            EC.presence_of_all_elements_located((By.TAG_NAME, "img"))
+                        )
+                        ul_photos = desktop_gallery.find_element(By.TAG_NAME, "ul")
+
+                        pictures = ul_photos.find_elements(By.TAG_NAME, "picture")
+                    
+                        #Find picture first instead of img to avoid the maps
+                        #Don't include the last picture element because it doesn't contain any image
+                        for picture in pictures[:-1]:
                             img = picture.find_element(By.TAG_NAME, "img")
                             item["Photos"] += img.get_attribute("src") + " "
-                        except NoSuchElementException:
-                            pass
-                    
+                    except TimeoutException:
+                        logging.info("Accomodation with url " + item["Link"] + " has no photos !")
+                        continue
+
                     #Remove the last space delimiter at the end of the string
                     item["Photos"] = item["Photos"].rstrip()
                     

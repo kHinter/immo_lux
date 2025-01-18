@@ -2,5 +2,5 @@ dags/data/raw/*
 dags/data/cleaned/*
 dags/data/enriched*
 dags/reports/*
-dags/deduplicated/*
+dags/data/deduplicated/*
 __pycache__/

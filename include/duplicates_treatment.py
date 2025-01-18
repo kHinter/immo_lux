@@ -4,8 +4,6 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import date
-import sys
-
 from airflow.models import Variable
 
 #Custom modules
