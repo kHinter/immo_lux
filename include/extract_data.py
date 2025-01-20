@@ -82,7 +82,7 @@ def extract_athome_data():
             proceed = False
         else:
             #List all the properties to treat
-            properties = s.find_all("article", class_= ["property-article standard", "property-article silver", "property-article gold", "property-article platinum"])
+            properties = s.find_all("article", class_= ["property-article red", "property-article standard", "property-article silver", "property-article gold", "property-article platinum"])
 
             for i in range(len(properties)):
                 item = {}
@@ -280,12 +280,12 @@ def extract_athome_data():
                     #Add the photos of the accomodation to the dataframe
                     item["Photos"] = ""
 
-                    WebDriverWait(driver, 1)
+                    WebDriverWait(driver, 2)
                     #Because the DOM can change due to responsiveness
                     driver.get(item["Link"])
 
                     #Time to wait before timeout
-                    max_waiting_time = 10
+                    max_waiting_time = 20
                     
                     #To accept the cookies the first time
                     if first_session:
@@ -308,6 +308,9 @@ def extract_athome_data():
                         )
                         ul_photos = desktop_gallery.find_element(By.TAG_NAME, "ul")
 
+                        WebDriverWait(driver, max_waiting_time).until(
+                            EC.presence_of_all_elements_located((By.TAG_NAME, "picture"))
+                        )
                         pictures = ul_photos.find_elements(By.TAG_NAME, "picture")
                     
                         #Find picture first instead of img to avoid the maps

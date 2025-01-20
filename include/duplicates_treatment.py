@@ -29,7 +29,7 @@ def sift_similarity(img1, img2):
 
     # bf = cv2.BFMatcher(cv2.NORM_L2)
     matches = flann.knnMatch(desc_img1, desc_img2, k=2)
-    good_matches = [m for m, n in matches if m.distance < 0.3 * n.distance]
+    good_matches = [m for m, n in matches if m.distance < 0.2 * n.distance]
 
     if len(matches) == 0:
         return 0
@@ -38,6 +38,10 @@ def sift_similarity(img1, img2):
 def get_city_coordinates(city_name):
     response = utils.fetch_url_with_retries(f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&countrycode=lu&key={Variable.get('opencage_api_key')}")
     data = response.json()
+
+    if response.status_code == 402:
+        raise RuntimeError("Daily limit of 2500 API requests reached")
+
     if data["results"]:
         coordinates = data["results"][0]["geometry"]
         return (coordinates["lat"], coordinates["lng"])
@@ -60,7 +64,7 @@ def calculate_haversine_distance(coord1, coord2):
 def merge_all_df_and_treat_duplicates():
     #Retrieve all df
     today = str(date.today())
-    # today = "2025-01-10"
+    # today = "2025-01-19"
     airflow_home = os.environ["AIRFLOW_HOME"]
 
     df_athome = pd.read_csv(
@@ -123,12 +127,10 @@ def merge_all_df_and_treat_duplicates():
         "Sanem" : ["Differdange", "Käerjeng", "Dippach", "Reckange-sur-Mess", "Mondercange", "Esch-sur-Alzette"]
     }
 
-
-
     ##Constants
 
     surface_diff_threshold = 5
-    photos_exactness_threshold = 0.07
+    photos_exactness_threshold = 0.045
     #To limit the amount of photos compared and reduce the similarity comparison computation time
     max_photos_treated_per_accomodation = 11
     #Distance expressed in km
@@ -189,7 +191,10 @@ def merge_all_df_and_treat_duplicates():
             if distance_between_cities >= distance_between_cities_threshold:
                 continue
 
-            logging.info(f"Comparison between accomodation line {i+2} and accomodation line {j+2}")
+            i_url = df.loc[i, "Link"]
+            j_url = df.loc[j, "Link"]
+
+            logging.info(f"Comparison between accomodation line {i+2} ( {i_url} ) and accomodation line {j+2} ( {j_url} )")
 
             i_photos_url = df.loc[i, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
             j_photos_url = df.loc[j, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
@@ -225,6 +230,8 @@ def merge_all_df_and_treat_duplicates():
                     if metric_val >= photos_exactness_threshold:
                         duplicates_count += 1
                         df.loc[j, "Duplicate_rank"] = duplicates_count + 1
+
+                        logging.info(f"\tBoth accommodations have been identified and flagged as duplicates !")
                         break
                 
                 if metric_val >= photos_exactness_threshold:

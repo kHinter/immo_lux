@@ -143,7 +143,9 @@ def athome_lu_data_cleaning():
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
-            "Garages" : "Int64"})
+            "Garages" : "Int64",
+            #Convert into object in order to be able to replace the "," by "."
+            "Surface" : "object"})
 
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df["City"] = df["City"].apply(lambda city : city.strip())
@@ -155,7 +157,8 @@ def athome_lu_data_cleaning():
     # df["Street"] = df["Adress"].apply(lambda adress: )
 
     df["District"] = df["District"].replace({
-        "Weimershof", "Neudorf-Weimershof"
+        "Weimershof" : "Neudorf-Weimershof",
+        "Pulvermuehle" : "Pulvermuhl"
     })
 
     #Replace "Centre ville" values by NA because they are not reliable (don't always reflect the real district)
