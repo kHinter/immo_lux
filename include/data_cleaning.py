@@ -7,6 +7,7 @@ import logging
 
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
+street_number_reg = re.compile("^\d+[a-zA-Z]?,?")
 
 ##TRANSLATE TABLES
 translate_table_price = str.maketrans("", "", "€ ,")
@@ -24,6 +25,16 @@ def get_floor_number(floor_number):
                 return part
     else:
         return floor_number
+    
+def get_street_name_and_number(row):
+    if pd.notna(row["Address"]):
+        match = street_number_reg.search(row["Address"])
+        if match:
+            row["Street_number"] = match.group().replace(",", "")
+            row["Street_name"] = row["Address"][match.end():].split(",")[0].strip()
+        else:
+            row["Street_name"] = row["Address"].split(",")[0].strip()
+    return row
 
 def clean_deposit(df):
     for i in range (len(df)):
@@ -65,6 +76,8 @@ def immotop_lu_data_cleaning():
     airflow_home = os.environ["AIRFLOW_HOME"]
     
     df = pd.read_csv(f"{airflow_home}/dags/data/raw/immotop_lu_{today}.csv", dtype={"Bedrooms" : "Int64"})
+
+    df.dropna(subset=["Surface", "Price", "Photos"], inplace=True)
     
     #Starting by renaming the columns to correspond with all the other files
     #Key = Feature name displayed on the website, Value = Column name on the df
@@ -120,7 +133,6 @@ def immotop_lu_data_cleaning():
     
     df.drop(df[df.Type == "Building"].index, inplace=True)
     df.drop(columns=["Rental guarantee", "Condominium_fees"], inplace=True)
-    df.dropna(subset=["Surface", "Price"], inplace=True)
 
     lines_before_duplicates_removal = len(df)
     df.drop_duplicates(subset=["Link"], inplace=True)
@@ -146,6 +158,8 @@ def athome_lu_data_cleaning():
             "Garages" : "Int64",
             #Convert into object in order to be able to replace the "," by "."
             "Surface" : "object"})
+    
+    df.dropna(subset=["Surface", "Price", "Photos"], inplace=True)
 
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df["City"] = df["City"].apply(lambda city : city.strip())
@@ -154,7 +168,7 @@ def athome_lu_data_cleaning():
     df["Surface"] = df["Surface"].apply(lambda surface : surface.replace(",", "."))
 
     #Determine the street name and/or street number
-    # df["Street"] = df["Adress"].apply(lambda adress: )
+    df = df.apply(get_street_name_and_number, axis=1)
 
     df["District"] = df["District"].replace({
         "Weimershof" : "Neudorf-Weimershof",
@@ -165,12 +179,12 @@ def athome_lu_data_cleaning():
     df["District"] = df["District"].replace("Centre ville", pd.NA)
 
     lines_before_duplicates_removal = len(df)
-
-    #Drop duplicated rows
     df = df.drop_duplicates(subset=["Link"])
     lines_after_duplicates_removal = len(df)
     
     logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
+
+    df.drop(columns=["Address"], inplace=True)
 
     df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv", index=False)
 

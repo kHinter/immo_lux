@@ -1,7 +1,6 @@
 from datetime import date
 import logging
 import os
-
 #Custom modules
 from . import utils
 
@@ -13,7 +12,7 @@ def extract_athome_data():
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.common.by import By
-    from selenium.common.exceptions import NoSuchElementException, TimeoutException
+    from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 
     import pandas as pd
     from bs4 import BeautifulSoup
@@ -62,6 +61,7 @@ def extract_athome_data():
     # changing the property of the navigator value for webdriver to undefined 
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     driver.maximize_window()
+    driver.implicitly_wait(10)
 
     #Only for selenium purpose
     first_session = True
@@ -121,6 +121,13 @@ def extract_athome_data():
                     #Go in the detail page to get additionnal informations
                     page = utils.fetch_url_with_retries(item["Link"], headers=headers)
                     details = BeautifulSoup(page.text, "html.parser")
+
+                    adress_div = details.find("div", "block-localisation-address")
+                    if adress_div != None:
+                        full_adress = adress_div.getText()
+                        
+                        if full_adress.count(",") >= 2:
+                            item["Address"] = full_adress.strip()
                     
                     description = details.find("div", "collapsed")
                     
@@ -263,13 +270,6 @@ def extract_athome_data():
                             item["Insulation_class"] = insulation_class.get_text()
                         else:
                             item["Insulation_class"] = None
-                    
-                    adress_div = details.find("div", "block-localisation-address")
-                    if adress_div != None:
-                        full_adress = adress_div.getText()
-                        
-                        if full_adress.count(",") >= 2:
-                            item["Adress"] = full_adress
 
                     agency = details.find("div", class_="agency-details__name agency-details__name--centered")
                     if agency != None:
@@ -280,46 +280,47 @@ def extract_athome_data():
                     #Add the photos of the accomodation to the dataframe
                     item["Photos"] = ""
 
-                    WebDriverWait(driver, 2)
                     #Because the DOM can change due to responsiveness
                     driver.get(item["Link"])
+
+                    WebDriverWait(driver, 1.7)
 
                     #Time to wait before timeout
                     max_waiting_time = 20
                     
                     #To accept the cookies the first time
                     if first_session:
-                        WebDriverWait(driver, max_waiting_time).until(
-                            EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler"))
-                        )
+                        WebDriverWait(driver, max_waiting_time).until(EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler")))
                         accept_cookies = driver.find_element(By.ID, "onetrust-accept-btn-handler")
                         accept_cookies.click()
 
                         first_session = False
 
-                    WebDriverWait(driver, max_waiting_time).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery"))
-                    )
-                    desktop_gallery = driver.find_element(By.CLASS_NAME, "showHideDesktopGallery")
-
+                    #Wait for all elements to be loaded to avoid StaleElementReferenceException
+                    WebDriverWait(driver, max_waiting_time).until(EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery")))
                     try:
-                        WebDriverWait(driver, max_waiting_time).until(
-                            EC.presence_of_all_elements_located((By.TAG_NAME, "img"))
-                        )
+                        WebDriverWait(driver, max_waiting_time).until(EC.presence_of_all_elements_located((By.TAG_NAME, "picture")))
+                        WebDriverWait(driver, max_waiting_time).until(EC.presence_of_all_elements_located((By.TAG_NAME, "img")))
+                    
+                        desktop_gallery = driver.find_element(By.CLASS_NAME, "showHideDesktopGallery")
                         ul_photos = desktop_gallery.find_element(By.TAG_NAME, "ul")
 
-                        WebDriverWait(driver, max_waiting_time).until(
-                            EC.presence_of_all_elements_located((By.TAG_NAME, "picture"))
-                        )
-                        pictures = ul_photos.find_elements(By.TAG_NAME, "picture")
-                    
                         #Find picture first instead of img to avoid the maps
-                        #Don't include the last picture element because it doesn't contain any image
-                        for picture in pictures[:-1]:
-                            img = picture.find_element(By.TAG_NAME, "img")
-                            item["Photos"] += img.get_attribute("src") + " "
-                    except TimeoutException:
-                        logging.info("Accomodation with url " + item["Link"] + " has no photos !")
+                        pictures = ul_photos.find_elements(By.TAG_NAME, "picture")
+
+                        retries = 3
+                        while retries > 0:
+                            try:
+                                #Don't include the last picture element because it doesn't contain any image
+                                for picture in pictures[:-1]:
+                                    img = picture.find_element(By.TAG_NAME, "img")
+                                    item["Photos"] += img.get_attribute("src") + " "
+                                break
+                            except StaleElementReferenceException as e:
+                                retries -= 1
+                                logging.info("\t\tStaleElementReferenceException occured !")
+                    except TimeOutException:
+                        logging.info("\t\tAccomodation with url " + item["Link"] + " has no photos !")
                         continue
 
                     #Remove the last space delimiter at the end of the string
@@ -404,6 +405,11 @@ def extract_immotop_lu_data():
                 
                 if title_parts_size > 2:
                     item["District"] = title_parts[title_parts_size - 2].replace("Localité", "")
+
+                #To get the address
+                location_spans = details.find_all("span", "re-blockTitle__location")
+                if len(location_spans) == 2:
+                    item["Address"] = location_spans[1].get_text()
 
                 #Features treatment
                 features = details.find_all("div", "re-featuresItem")
