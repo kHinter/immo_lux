@@ -3,13 +3,12 @@ import cv2
 import numpy as np
 import pandas as pd
 import os
-from datetime import date
 from airflow.models import Variable
 
 #Custom modules
 from . import utils
 
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# from utils import fetch_url_with_retries
 
 def sift_similarity(img1, img2):
     nfeatures = 500
@@ -39,8 +38,8 @@ def get_city_coordinates(city_name):
     response = utils.fetch_url_with_retries(f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&countrycode=lu&key={Variable.get('opencage_api_key')}")
     data = response.json()
 
-    if response.status_code == 402:
-        raise RuntimeError("Daily limit of 2500 API requests reached")
+    if response.status_code != 200:
+        raise RuntimeError(f"Code {response.status_code} - {data['status']['message']}")
 
     if data["results"]:
         coordinates = data["results"][0]["geometry"]
@@ -61,14 +60,12 @@ def calculate_haversine_distance(coord1, coord2):
 
     return R * c
     
-def merge_all_df_and_treat_duplicates():
+def merge_all_df_and_treat_duplicates(ds):
     #Retrieve all df
-    today = str(date.today())
-    # today = "2025-01-19"
     airflow_home = os.environ["AIRFLOW_HOME"]
 
     df_athome = pd.read_csv(
-        f"{airflow_home}/dags/data/enriched/athome_last3d_{today}.csv",
+        f"{airflow_home}/dags/data/enriched/athome_last3d_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -77,7 +74,7 @@ def merge_all_df_and_treat_duplicates():
             "Bathroom" : "Int64",
             "Garages" : "Int64"})
 
-    df_immotop = pd.read_csv(f"{airflow_home}/dags/data/enriched/immotop_lu_{today}.csv")
+    df_immotop = pd.read_csv(f"{airflow_home}/dags/data/enriched/immotop_lu_{ds}.csv")
 
     #Merge all df into a single one
     df = pd.concat([df_athome, df_immotop])
@@ -242,6 +239,6 @@ def merge_all_df_and_treat_duplicates():
                 i = j - 1
 
         i+=1
-    df.to_csv(f"{airflow_home}/dags/data/deduplicated/merged_accomodations_{today}.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/deduplicated/merged_accomodations_{ds}.csv", index=False)
 
-# merge_all_df_and_treat_duplicates()
+merge_all_df_and_treat_duplicates("2025-01-27")

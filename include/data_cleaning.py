@@ -71,11 +71,10 @@ def get_district(district):
     else:
         return district.replace("Localité", "")
 
-def immotop_lu_data_cleaning():
-    today = str(date.today())
+def immotop_lu_data_cleaning(ds):
     airflow_home = os.environ["AIRFLOW_HOME"]
     
-    df = pd.read_csv(f"{airflow_home}/dags/data/raw/immotop_lu_{today}.csv", dtype={"Bedrooms" : "Int64"})
+    df = pd.read_csv(f"{airflow_home}/dags/data/raw/immotop_lu_{ds}.csv", dtype={"Bedrooms" : "Int64"})
 
     df.dropna(subset=["Surface", "Price", "Photos"], inplace=True)
     
@@ -140,15 +139,13 @@ def immotop_lu_data_cleaning():
 
     logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
 
-    df.to_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{today}.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{ds}.csv", index=False)
 
-def athome_lu_data_cleaning():
-    today = str(date.today())
-    # today = "2025-01-10"
+def athome_lu_data_cleaning(ds):
     airflow_home = os.environ["AIRFLOW_HOME"]
 
     df = pd.read_csv(
-        f"{airflow_home}/dags/data/raw/athome_last3d_{today}.csv",
+        f"{airflow_home}/dags/data/raw/athome_last3d_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -186,7 +183,7 @@ def athome_lu_data_cleaning():
 
     df.drop(columns=["Address"], inplace=True)
 
-    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv", index=False)
+    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{ds}.csv", index=False)
 
 # athome_lu_data_cleaning()
 # immotop_lu_data_cleaning()

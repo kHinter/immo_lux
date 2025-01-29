@@ -1,35 +1,33 @@
-def generate_report():
+def generate_report(ds):
     import pandas as pd
     from datetime import date
     import jinja2
     import matplotlib.pyplot as plt
     import io
     import os
-    import logging
     import base64
     import numpy as np
 
     airflow_home = os.environ["AIRFLOW_HOME"]
-    today = str(date.today())
 
     df_data = {
         "Immotop.lu" : {
             "steps" : {
                 "cleaned" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{today}.csv")
+                    "df" : pd.read_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{ds}.csv")
                 },
                 "enriched" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/enriched/immotop_lu_{today}.csv")
+                    "df" : pd.read_csv(f"{airflow_home}/dags/data/enriched/immotop_lu_{ds}.csv")
                 }
             }
         },
         "Athome.lu" : {
             "steps" : {
                 "cleaned" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{today}.csv")
+                    "df" : pd.read_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{ds}.csv")
                 },
                 "enriched" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/enriched/athome_last3d_{today}.csv")
+                    "df" : pd.read_csv(f"{airflow_home}/dags/data/enriched/athome_last3d_{ds}.csv")
                 }
             }
         }
@@ -88,15 +86,13 @@ def generate_report():
         df_data[website]["img"] = base64.b64encode(plt_img_bytes.read()).decode()
         plt.close()
 
-    today = str(date.today())
-
     context = {
-        "date" : today,
+        "date" : ds,
         "df_data" : df_data
     }
 
     #Complete the template with my dynamic data
     reportText = html_template.render(context)
     
-    with open(f"{airflow_home}/dags/reports/dq_report_{today}.html", "w") as f:
+    with open(f"{airflow_home}/dags/reports/dq_report_{ds}.html", "w") as f:
         f.write(reportText)
