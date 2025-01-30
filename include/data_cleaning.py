@@ -1,9 +1,8 @@
 import pandas as pd
-from datetime import date
-import numpy as np
 import re
 import os
 import logging
+from airflow.models import Variable
 
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -72,9 +71,7 @@ def get_district(district):
         return district.replace("Localité", "")
 
 def immotop_lu_data_cleaning(ds):
-    airflow_home = os.environ["AIRFLOW_HOME"]
-    
-    df = pd.read_csv(f"{airflow_home}/dags/data/raw/immotop_lu_{ds}.csv", dtype={"Bedrooms" : "Int64"})
+    df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/raw/immotop_lu_{ds}.csv", dtype={"Bedrooms" : "Int64"})
 
     df.dropna(subset=["Surface", "Price", "Photos"], inplace=True)
     
@@ -139,13 +136,11 @@ def immotop_lu_data_cleaning(ds):
 
     logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
 
-    df.to_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv", index=False)
 
 def athome_lu_data_cleaning(ds):
-    airflow_home = os.environ["AIRFLOW_HOME"]
-
     df = pd.read_csv(
-        f"{airflow_home}/dags/data/raw/athome_last3d_{ds}.csv",
+        f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -183,7 +178,7 @@ def athome_lu_data_cleaning(ds):
 
     df.drop(columns=["Address"], inplace=True)
 
-    df.to_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv", index=False)
 
 # athome_lu_data_cleaning()
 # immotop_lu_data_cleaning()

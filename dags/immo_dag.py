@@ -18,6 +18,10 @@ from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
 from include.reports import generate_report
 from include.duplicates_treatment import merge_all_df_and_treat_duplicates
 
+if Variable.get("immo_lux_data_folder", default_var=None) == None:
+    airflow_home = os.environ["AIRFLOW_HOME"]
+    Variable.set("immo_lux_data_folder", f"{airflow_home}/dags/data")
+
 default_args = {
     "owner" : "airflow",
     'depends_on_past' : False,

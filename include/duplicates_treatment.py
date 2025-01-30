@@ -62,10 +62,8 @@ def calculate_haversine_distance(coord1, coord2):
     
 def merge_all_df_and_treat_duplicates(ds):
     #Retrieve all df
-    airflow_home = os.environ["AIRFLOW_HOME"]
-
     df_athome = pd.read_csv(
-        f"{airflow_home}/dags/data/enriched/athome_last3d_{ds}.csv",
+        f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -74,7 +72,7 @@ def merge_all_df_and_treat_duplicates(ds):
             "Bathroom" : "Int64",
             "Garages" : "Int64"})
 
-    df_immotop = pd.read_csv(f"{airflow_home}/dags/data/enriched/immotop_lu_{ds}.csv")
+    df_immotop = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv")
 
     #Merge all df into a single one
     df = pd.concat([df_athome, df_immotop])
@@ -239,6 +237,6 @@ def merge_all_df_and_treat_duplicates(ds):
                 i = j - 1
 
         i+=1
-    df.to_csv(f"{airflow_home}/dags/data/deduplicated/merged_accomodations_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/deduplicated/merged_accomodations_{ds}.csv", index=False)
 
-merge_all_df_and_treat_duplicates("2025-01-27")
+# merge_all_df_and_treat_duplicates("2025-01-27")

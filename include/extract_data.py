@@ -1,4 +1,3 @@
-from datetime import date
 import logging
 import os
 from airflow.models import Variable
@@ -22,10 +21,6 @@ def extract_athome_data(part_number, total_parts, ds):
     translate_table_price = str.maketrans("", "", "€ \u202f\xa0'")
     if Variable.get("immo_lux_base_url_athome_lu") == None:
         Variable.set("immo_lux_base_url_athome_lu", "https://www.athome.lu/en/srp/?tr=rent&sort=price_asc&q=faee1a4a&loc=L2-luxembourg&ptypes=house,flat&page=")
-    
-    if Variable.get("immo_lux_athome_lu_raw_data_folder") != None:
-        airflow_home = os.environ["AIRFLOW_HOME"]
-        Variable.set("immo_lux_athome_lu_raw_data_folder", f"{airflow_home}/dags/data/raw")
 
     ###CHROME OPTIONS SETUP####
     chrome_options = Options()
@@ -338,7 +333,7 @@ def extract_athome_data(part_number, total_parts, ds):
     df["Snapshot_day"] = ds
     df["Website"] = "athome"
 
-    parent_folder_path = f"{Variable.get('immo_lux_athome_lu_raw_data_folder')}/athome_last3d_{ds}"
+    parent_folder_path = f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}"
     
     if not os.path.exists(parent_folder_path):
         os.makedirs(parent_folder_path)
@@ -351,13 +346,13 @@ def merge_athome_raw_data_parts(ds):
     import os
 
     dfs = []
-    folder = f"{Variable.get('immo_lux_athome_lu_raw_data_folder')}/athome_last3d_{ds}"
+    folder = f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}"
 
     for file in os.listdir(folder):
         dfs.append(pd.read_csv(f"{folder}/{file}"))
 
     df = pd.concat(dfs, ignore_index=True)
-    df.to_csv(f"{Variable.get('immo_lux_athome_lu_raw_data_folder')}/athome_last3d_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}.csv", index=False)
 
 
 def extract_immotop_lu_data(ds):
@@ -471,11 +466,10 @@ def extract_immotop_lu_data(ds):
             current_page += 1
     
     #Persistance of data
-    airflow_home = os.environ["AIRFLOW_HOME"]
     df = pd.DataFrame(accomodations)
     df["Snapshot_day"] = ds
     df["Website"] = "immotop.lu"
-    df.to_csv(f"{airflow_home}/dags/data/raw/immotop_lu_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/immotop_lu_{ds}.csv", index=False)
 
     logging.info("Scraping of immotop.lu is successfully finished !")
 

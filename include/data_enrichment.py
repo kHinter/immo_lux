@@ -1,9 +1,9 @@
 import pandas as pd
-from datetime import date
 import re
 import os
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
+from airflow.models import Variable
 
 surface_trans_table = str.maketrans("", "", "sqm²(+/-")
 
@@ -120,9 +120,7 @@ def get_agency_fees_from_desc(description):
         return 0
 
 def immotop_lu_enrichment(ds):
-    airflow_home = os.environ["AIRFLOW_HOME"]
-
-    df = pd.read_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{ds}.csv")
+    df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv")
 
     #Determine other attributes based on description
     df["Monthly_charges"] = df["Description"].apply(lambda description: get_monthly_charge_from_desc(description) if pd.notna(description) else pd.NA)
@@ -139,13 +137,11 @@ def immotop_lu_enrichment(ds):
     df.loc[df["Agency_fees"].isna(), "Agency_fees"] = df.loc[df["Agency_fees"].isna(), "Description"].apply(lambda description: get_agency_fees_from_desc(description) if pd.notna(description) else pd.NA)
     df["Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
 
-    df.to_csv(f"{airflow_home}/dags/data/enriched/immotop_lu_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", index=False)
 
 def athome_lu_enrichment(ds):
-    airflow_home = os.environ["AIRFLOW_HOME"]
-    
     df = pd.read_csv(
-        f"{airflow_home}/dags/data/cleaned/athome_last3d_{ds}.csv",
+        f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -168,7 +164,7 @@ def athome_lu_enrichment(ds):
     df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Terrace_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
     df.loc[df["Has_garden"].isna(), "Has_garden"] = df.loc[df["Has_garden"].isna(), "Garden_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
 
-    df.to_csv(f"{airflow_home}/dags/data/enriched/athome_last3d_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv", index=False)
 
 # immotop_lu_enrichment()
 # athome_lu_enrichment()
