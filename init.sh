@@ -34,6 +34,8 @@ airflow_init()
     pip install bs4
     pip install opencv-python
     pip install matplotlib
+    pip install Unidecode
+    pip install openpyxl
     
     airflow db init
     sudo apt-get install postgresql postgresql-contrib

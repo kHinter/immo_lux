@@ -1,15 +1,27 @@
 import pandas as pd
 import re
-import os
 import logging
+from unidecode import unidecode
 from airflow.models import Variable
 
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
-street_number_reg = re.compile("^\d+[a-zA-Z]?,?")
+street_number_reg = re.compile("^\d+(?:-\d+)*(?:[a-zA-Z](?= |,))?,?")
 
 ##TRANSLATE TABLES
 translate_table_price = str.maketrans("", "", "€ ,")
+
+street_abbreviations = {
+    "rte" : "route",
+    "bd." : "boulevard",
+    "bld" : "boulevard",
+    "av." : "avenue",
+    "av" : "avenue"
+}
+
+#Official dataset and SoT of the Luxembourgish government for street names
+df_streets_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="RUE")
+streets_validity = {}
 
 def get_garages_number(garage):
     garages_number = [int(s) for s in garage.split() if s.isdigit()]
@@ -27,13 +39,37 @@ def get_floor_number(floor_number):
     
 def get_street_name_and_number(row):
     if pd.notna(row["Address"]):
+        row["Address"] = row["Address"].lstrip()
         match = street_number_reg.search(row["Address"])
         if match:
             row["Street_number"] = match.group().replace(",", "")
-            row["Street_name"] = row["Address"][match.end():].split(",")[0].strip()
+            row["Street_name"] = row["Address"][match.end():].split(",")[0]
         else:
-            row["Street_name"] = row["Address"].split(",")[0].strip()
+            row["Street_name"] = row["Address"].split(",")[0]
+
+            if row["Street_name"] == "":
+                row["Street_name"] = pd.NA
+                row["Street_number"] = pd.NA
+
+                return row
+        
+        #Normalization of street names
+        row["Street_name"] = unidecode(row["Street_name"].strip().lower())
+        row["Street_name"] = " ".join([street_abbreviations.get(word, word) for word in row["Street_name"].split()])
     return row
+
+#Will be used later during duplicate treatment to eliminate potential candidates for image similarity comparison
+def get_street_name_validity(street_name):
+    if street_name in streets_validity:
+        return streets_validity[street_name]
+    else:
+        match = df_streets_sot.loc[df_streets_sot["NOM_MAJUSUCLE"] == street_name.upper(), "NOM_MAJUSUCLE"]
+        if match.empty:
+            streets_validity[street_name] = False
+            return pd.NA
+        else:
+            streets_validity[street_name] = True
+            return "Oui"
 
 def clean_deposit(df):
     for i in range (len(df)):
@@ -92,6 +128,14 @@ def immotop_lu_data_cleaning(ds):
     df.rename(columns=column_names, inplace=True)
 
     df["Surface"] = df["Surface"].apply(lambda surface: surface.replace("m²", "").replace(" ", "") if pd.notnull(surface) else surface)
+    
+    #Add a comma at the end so the function get_street_name_and_number can work properly
+    df["Address"] = df["Address"].apply(lambda address: address + "," if pd.notnull(address) else address)
+
+    #Determine the street name and/or street number
+    df = df.apply(get_street_name_and_number, axis=1)
+
+    df["Steert_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
 
     df["Agency_fees"] = df["Agency_fees"].apply(lambda fees: fees.replace("Not specified", "").translate(translate_table_price) if pd.notnull(fees) else fees)
 
@@ -136,6 +180,8 @@ def immotop_lu_data_cleaning(ds):
 
     logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
 
+    df.drop(columns=["Address"], inplace=True)
+
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv", index=False)
 
 def athome_lu_data_cleaning(ds):
@@ -148,7 +194,7 @@ def athome_lu_data_cleaning(ds):
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
             "Garages" : "Int64",
-            #Convert into object in order to be able to replace the "," by "."
+            #Convert surface into object in order to be able to replace the "," by "."
             "Surface" : "object"})
     
     df.dropna(subset=["Surface", "Price", "Photos"], inplace=True)
@@ -162,7 +208,10 @@ def athome_lu_data_cleaning(ds):
     #Determine the street name and/or street number
     df = df.apply(get_street_name_and_number, axis=1)
 
+    df["Steert_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
+
     df["District"] = df["District"].replace({
+        "Neudorf" : "Neudorf-Weimershof",
         "Weimershof" : "Neudorf-Weimershof",
         "Pulvermuehle" : "Pulvermuhl"
     })
@@ -180,5 +229,5 @@ def athome_lu_data_cleaning(ds):
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv", index=False)
 
-# athome_lu_data_cleaning()
-# immotop_lu_data_cleaning()
+# athome_lu_data_cleaning("2025-01-31")
+# immotop_lu_data_cleaning("2025-01-29")

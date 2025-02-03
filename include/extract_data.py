@@ -112,12 +112,9 @@ def extract_athome_data(part_number, total_parts, ds):
 
                         logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
 
-                        # if "apartment" in item["Link"]:
-                        #     item["Type"] = "Apartment"
-                        # elif "house" in item["Link"]:
-                        #     item["Type"] = "House"
-                        # else:
-                        #     item["Type"] = None
+                        #Ignore new properties
+                        if "new-property" in item["Link"]:
+                            continue
 
                         #Get the district (only for Luxembourg City)
                         if item["City"].strip().startswith("Luxembourg"):
@@ -344,6 +341,7 @@ def extract_athome_data(part_number, total_parts, ds):
 def merge_athome_raw_data_parts(ds):
     import pandas as pd
     import os
+    import shutil
 
     dfs = []
     folder = f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}"
@@ -353,6 +351,9 @@ def merge_athome_raw_data_parts(ds):
 
     df = pd.concat(dfs, ignore_index=True)
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}.csv", index=False)
+
+    #Remove the temporary folder and all its content
+    shutil.rmtree(folder)
 
 
 def extract_immotop_lu_data(ds):
@@ -382,7 +383,7 @@ def extract_immotop_lu_data(ds):
         page = utils.fetch_url_with_retries("https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag=" + str(current_page), headers=headers)
         s = BeautifulSoup (page.text, "html.parser")
 
-        if s.find("div", "nd-alert nd-alert--warning in-errorMessage__alert in-errorMessage__title") != None:
+        if s.find("div", "in-errorPage__bg in-errorPage__bg--generic in-errorPage__container") != None:
             proceed = False
         else:
             properties = s.find("ul", "nd-list in-searchLayoutList ls-results").find_all("li", "nd-list__item in-searchLayoutListItem")
