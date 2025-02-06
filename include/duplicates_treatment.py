@@ -2,7 +2,6 @@ import logging
 import cv2
 import numpy as np
 import pandas as pd
-import os
 from airflow.models import Variable
 
 #Custom modules
@@ -113,13 +112,18 @@ def merge_all_df_and_treat_duplicates(ds):
     }
 
     adjacent_cities = {
-        "Luxembourg" : ["Strassen", "Bertrange", "Leudelange", "Roeser", "Hesperange", "Sandweiler", "Niederanven", "Walferdange", "Kopstal"],
-        "Esch-sur-Alzette" : ["Sanem", "Mondercange", "Schifflange" "Kayl", "Rumelange"],
-        "Strassen" : ["Mamer", "Kehlen", "Kopstal", "Luxembourg", "Bertrange"],
-        "Hesperange" : ["Luxembourg", "Roeser", "Weiler-la-Tour", "Contern", "Sandweiler"],
-        "Differdange" : ["Pétange", "Käerjeng", "Sanem"],
-        "Walferdange" : ["Kopstal", "Steinsel", "Luxembourg"],
-        "Sanem" : ["Differdange", "Käerjeng", "Dippach", "Reckange-sur-Mess", "Mondercange", "Esch-sur-Alzette"]
+        "luxembourg" : ["strassen", "bertrange", "leudelange", "roeser", "hesperange", "sandweiler", "niederanven", "walferdange", "kopstal"],
+        "esch-sur-alzette" : ["sanem", "mondercange", "schifflange", "kayl", "rumelange"],
+        "strassen" : ["mamer", "kehlen", "kopstal", "luxembourg", "bertrange"],
+        "hesperange" : ["luxembourg", "roeser", "weiler-la-tour", "contern", "sandweiler"],
+        "bertrange" : ["mamer", "strassen", "dippach", "leudelange", "reckange-sur-mess", "luxembourg"],
+        "mamer" : ["steinfort", "koerich", "kehlen", "strassen", "bertrange", "dippach", "garnich"],
+        "leudelange" : ["reckange-sur-mess", "mondercange", "bettembourg", "roeser", "bertrange", "luxembourg"],
+        "differdange" : ["pétange", "käerjeng", "sanem"],
+        "käerjeng" : ["pétange", "differdange", "sanem", "dippach", "garnich"],
+        "niederanven" : ["steinsel", "walferdange", "luxembourg", "sandweiler", "schuttrange", "betzdorf", "junglinster"],
+        "walferdange" : ["kopstal", "steinsel", "luxembourg"],
+        "sanem" : ["differdange", "käerjeng", "dippach", "reckange-sur-mess", "mondercange", "esch-sur-alzette"]
     }
 
     ##Constants
@@ -149,17 +153,24 @@ def merge_all_df_and_treat_duplicates(ds):
         for j in range (i+1, df_len):
             surface_diff = df.loc[j, "Surface"] - df.loc[i, "Surface"]
 
+            #TODO check that the following accomodations are treated as duplicates https://www.athome.lu/location/appartement/differdange/id-7830259.html and https://www.immotop.lu/en/annonces/1486959/#map
+
             if (df.loc[i, "Price"] != df.loc[j, "Price"] 
-            or pd.notna(df.loc[i, "Bedrooms"]) and pd.notna(df.loc[j, "Bedrooms"]) and df.loc[i, "Bedrooms"] != df.loc[j, "Bedrooms"]
-            or pd.notna(df.loc[i, "Bathroom"]) and pd.notna(df.loc[j, "Bathroom"]) and df.loc[i, "Bathroom"] != df.loc[j, "Bathroom"]
+            or (pd.notna(df.loc[i, "Bedrooms"]) and pd.notna(df.loc[j, "Bedrooms"]) and df.loc[i, "Bedrooms"] != df.loc[j, "Bedrooms"])
+            or (pd.notna(df.loc[i, "Bathroom"]) and pd.notna(df.loc[j, "Bathroom"]) and df.loc[i, "Bathroom"] != df.loc[j, "Bathroom"])
             or surface_diff > surface_diff_threshold):
                 #Allow to skip series of duplicates
                 if duplicates_count > 0 and (j - i) == duplicates_count + 1:
                     i = j - 1
                 break
+            
+            #Skip the current j line duplicate treatment if both street names are not the same
+            if pd.notna(df.loc[i, "Street_name_validity"]) and pd.notna(df.loc[j, "Street_name_validity"]) and df.loc[i, "Street_name"] != df.loc[j, "Street_name"]:
+                logging.info(f"Skipping comparison between accomodation line {i+2} and accomodation line {j+2} because the street names are different !")
+                continue
                      
-            i_city = df.loc[i, "City"]
-            j_city = df.loc[j, "City"]
+            i_city = df.loc[i, "City"].lower()
+            j_city = df.loc[j, "City"].lower()
 
             #Skip the current j line duplicate treatment if both districts of a same city are not adjacent
             if i_city == j_city and i_city in adjacent_districts.keys():
@@ -239,4 +250,4 @@ def merge_all_df_and_treat_duplicates(ds):
         i+=1
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/deduplicated/merged_accomodations_{ds}.csv", index=False)
 
-# merge_all_df_and_treat_duplicates("2025-01-27")
+# merge_all_df_and_treat_duplicates("2025-02-01")

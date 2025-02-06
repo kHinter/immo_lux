@@ -65,10 +65,9 @@ def get_street_name_validity(street_name):
     else:
         match = df_streets_sot.loc[df_streets_sot["NOM_MAJUSUCLE"] == street_name.upper(), "NOM_MAJUSUCLE"]
         if match.empty:
-            streets_validity[street_name] = False
             return pd.NA
         else:
-            streets_validity[street_name] = True
+            streets_validity[street_name] = "Oui"
             return "Oui"
 
 def clean_deposit(df):
@@ -135,7 +134,7 @@ def immotop_lu_data_cleaning(ds):
     #Determine the street name and/or street number
     df = df.apply(get_street_name_and_number, axis=1)
 
-    df["Steert_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
+    df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
 
     df["Agency_fees"] = df["Agency_fees"].apply(lambda fees: fees.replace("Not specified", "").translate(translate_table_price) if pd.notnull(fees) else fees)
 
@@ -208,7 +207,14 @@ def athome_lu_data_cleaning(ds):
     #Determine the street name and/or street number
     df = df.apply(get_street_name_and_number, axis=1)
 
-    df["Steert_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
+    df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
+
+    df["City"] = df["City"].replace({
+        "Capellen" : "Mamer", #Capellen is a district of Mamer
+        "Bascharage" : "Käerjeng", #Bascharage is a district of Käerjeng
+        "Clemency" : "Käerjeng", # Clemency is a district of Käerjeng
+        "Rodange" : "Pétange", #Rodange is a district of Pétange
+    })
 
     df["District"] = df["District"].replace({
         "Neudorf" : "Neudorf-Weimershof",

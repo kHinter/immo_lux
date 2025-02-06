@@ -135,7 +135,7 @@ def immotop_lu_enrichment(ds):
     df.loc[df["Has_lift"].isna(), "Has_lift"] = df.loc[df["Has_lift"].isna(), "Description"].apply(lambda description: get_has_lift_from_desc(description) if pd.notna(description) else pd.NA)
     df.loc[df["Is_furnished"].isna(), "Is_furnished"] = df.loc[df["Is_furnished"].isna(), "Description"].apply(lambda description: get_is_furnished_from_desc(description) if pd.notna(description) else pd.NA)
     df.loc[df["Agency_fees"].isna(), "Agency_fees"] = df.loc[df["Agency_fees"].isna(), "Description"].apply(lambda description: get_agency_fees_from_desc(description) if pd.notna(description) else pd.NA)
-    df["Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Is_flat"].isna(), "Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", index=False)
 

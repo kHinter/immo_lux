@@ -412,6 +412,9 @@ def extract_immotop_lu_data(ds):
                 if read_all != None:
                     item["Description"] = read_all.find("div").get_text()
 
+                if "flat" in title.get_text().lower():
+                    item["Is_flat"] = "Oui"
+
                 title_parts = title.get_text().split(", ")
                 title_parts_size = len(title_parts)
                 item["City"] = title_parts[title_parts_size - 1]
