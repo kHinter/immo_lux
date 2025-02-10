@@ -83,31 +83,100 @@ def merge_all_df_and_treat_duplicates(ds):
     df = df.sort_values(by=["Price", "Bedrooms", "Bathroom", "Surface"]).reset_index(drop=True)
 
     #Variables initialization
-    adjacent_districts = {
-        "Luxembourg" : {
-            "Rollingergrund" : ["Muhlenbach", "Belair", "Limpertsberg", "Ville Haute"],
-            "Muhlenbach" : ["Rollingergrund", "Beggen", "Limpertsberg", "Eich"],
-            "Beggen" : ["Muhlenbach", "Dommeldange", "Eich"],
-            "Dommeldange" : ["Beggen", "Eich", "Weimerskirch"],
-            "Limpertsberg" : ["Rollingergrund", "Muhlenbach", "Eich", "Pfaffenthal", "Ville Haute"],
-            "Eich" : ["Beggen", "Dommeldange", "Limpertsberg", "Muhlenbach", "Weimerskirch"],
-            "Weimerskirch" : ["Dommeldange", "Eich", "Pfaffenthal", "Kirchberg"],
-            "Belair" : ["Rollingergrund", "Ville Haute", "Merl", "Hollerich"],
-            "Ville Haute" : ["Belair", "Rollingergrund", "Limpertsberg", "Pfaffenthal", "Grund", "Gare", "Hollerich"],
-            "Pfaffenthal" : ["Ville Haute", "Limpertsberg", "Eich", "Weimerskirch", "Kirchberg", "Clausen", "Grund"],
-            "Kirchberg" : ["Weimerskirch", "Pfaffenthal", "Clausen", "Neudorf-Weimershof"],
-            "Neudorf-Weimershof" : ["Kirchberg", "Clausen", "Cents"],
-            "Clausen" : ["Neudorf-Weimershof", "Kirchberg", "Pfaffenthal", "Grund", "Cents"],
-            "Merl" : ["Belair", "Hollerich", "Cessange"],
-            "Hollerich" : ["Merl", "Belair", "Ville Haute", "Gare", "Gasperich", "Cessange"],
-            "Gare" : ["Hollerich", "Ville Haute", "Grund", "Bonnevoie", "Gasperich"],
-            "Grund" : ["Ville Haute", "Pfaffenthal", "Clausen", "Cents", "Pulvermuhl", "Bonnevoie", "Gare"],
-            "Cents" : ["Neudorf-Weimershof", "Clausen", "Grund", "Pulvermuhl", "Hamm"],
-            "Cessange" : ["Merl", "Hollerich", "Gasperich"],
-            "Gasperich" : ["Cessange", "Hollerich", "Gare", "Bonnevoie"],
-            "Bonnevoie" : ["Gasperich", "Gare", "Grund", "Pulvermuhl", "Hamm"],
-            "Pulvermuhl" : ["Bonnevoie", "Grund", "Cents", "Hamm"],
-            "Hamm" : ["Bonnevoie", "Pulvermuhl", "Cents"]
+    areas_adjacent_to_districts = {
+        "luxembourg" : {
+            "Rollingergrund" : {
+                "districts" : ["Muhlenbach", "Belair", "Limpertsberg", "Ville Haute"],
+                "cities" : ["strassen", "kopstal"]
+            },
+            "Muhlenbach" : {
+                "districts" : ["Rollingergrund", "Beggen", "Limpertsberg", "Eich"],
+                "cities" : ["walferdange"]
+            },
+            "Beggen" : {
+                "districts" : ["Muhlenbach", "Dommeldange", "Eich"],
+                "cities" : ["walferdange"]
+            },
+            "Dommeldange" : {
+                "districts" : ["Beggen", "Eich", "Weimerskirch"],
+                "cities" : ["walferdange", "niederanven"]
+            },
+            "Limpertsberg" : {
+                "districts" : ["Rollingergrund", "Muhlenbach", "Eich", "Pfaffenthal", "Ville Haute"],
+                "cities" : []
+            },
+            "Eich" : {
+                "districts" : ["Beggen", "Dommeldange", "Limpertsberg", "Muhlenbach", "Weimerskirch"],
+                "cities" : []
+            },
+            "Weimerskirch" : {
+                "districts" : ["Dommeldange", "Eich", "Pfaffenthal", "Kirchberg"],
+                "cities" : ["niederanven"]
+            },
+            "Belair" : {
+                "districts" : ["Rollingergrund", "Ville Haute", "Merl", "Hollerich"],
+                "cities" : ["strassen"]
+            },
+            "Ville Haute" : {
+                "districts" : ["Belair", "Rollingergrund", "Limpertsberg", "Pfaffenthal", "Grund", "Gare", "Hollerich"],
+                "cities" : []
+            },
+            "Pfaffenthal" : {
+                "districts" : ["Ville Haute", "Limpertsberg", "Eich", "Weimerskirch", "Kirchberg", "Clausen", "Grund"],
+                "cities" : []
+            },
+            "Kirchberg" : {
+                "districts" : ["Weimerskirch", "Pfaffenthal", "Clausen", "Neudorf-Weimershof"],
+                "cities" : ["niederanven"]
+            },
+            "Neudorf-Weimershof" : {
+                "districts" : ["Kirchberg", "Clausen", "Cents"],
+                "cities" : ["niederanven", "sandweiler"]
+            },
+            "Clausen" : {
+                "districts" : ["Neudorf-Weimershof", "Kirchberg", "Pfaffenthal", "Grund", "Cents"],
+                "cities" : []
+            },
+            "Merl" : {
+                "districts" : ["Belair", "Hollerich", "Cessange"],
+                "cities" : ["strassen", "bertrange"]
+            },
+            "Hollerich" : {
+                "districts" : ["Merl", "Belair", "Ville Haute", "Gare", "Gasperich", "Cessange"],
+                "cities" : []
+            },
+            "Gare" : {
+                "districts" : ["Hollerich", "Ville Haute", "Grund", "Bonnevoie", "Gasperich"],
+                "cities" : []
+            },
+            "Grund" : {
+                "districts" : ["Ville Haute", "Pfaffenthal", "Clausen", "Cents", "Pulvermuhl", "Bonnevoie", "Gare"],
+                "cities" : []
+            },
+            "Cents" : {
+                "districts" : ["Neudorf-Weimershof", "Clausen", "Grund", "Pulvermuhl", "Hamm"],
+                "cities" : ["niederanven", "sandweiler"]
+            },
+            "Cessange" : {
+                "districts" : ["Merl", "Hollerich", "Gasperich"],
+                "cities" : ["bertrange", "leudelange"]
+            },
+            "Gasperich" : {
+                "districts" : ["Cessange", "Hollerich", "Gare", "Bonnevoie"],
+                "cities" : ["leudelange", "roeser"]
+            },
+            "Bonnevoie" : {
+                "districts" : ["Gasperich", "Gare", "Grund", "Pulvermuhl", "Hamm"],
+                "cities" : ["hesperange"]
+            },
+            "Pulvermuhl" : {
+                "districts" : ["Bonnevoie", "Grund", "Cents", "Hamm"],
+                "cities" : []
+            },
+            "Hamm" : {
+                "districts" : ["Bonnevoie", "Pulvermuhl", "Cents"],
+                "cities" : ["hesperange", "sandweiler"]
+            }
         }
     }
 
@@ -133,7 +202,7 @@ def merge_all_df_and_treat_duplicates(ds):
     #To limit the amount of photos compared and reduce the similarity comparison computation time
     max_photos_treated_per_accomodation = 11
     #Distance expressed in km
-    distance_between_cities_threshold = 8
+    distance_between_cities_threshold = 6.7
 
     i = 0
     df_len = len(df)
@@ -153,9 +222,7 @@ def merge_all_df_and_treat_duplicates(ds):
         for j in range (i+1, df_len):
             surface_diff = df.loc[j, "Surface"] - df.loc[i, "Surface"]
 
-            #TODO check that the following accomodations are treated as duplicates https://www.athome.lu/location/appartement/differdange/id-7830259.html and https://www.immotop.lu/en/annonces/1486959/#map
-
-            if (df.loc[i, "Price"] != df.loc[j, "Price"] 
+            if (df.loc[i, "Price"] != df.loc[j, "Price"]
             or (pd.notna(df.loc[i, "Bedrooms"]) and pd.notna(df.loc[j, "Bedrooms"]) and df.loc[i, "Bedrooms"] != df.loc[j, "Bedrooms"])
             or (pd.notna(df.loc[i, "Bathroom"]) and pd.notna(df.loc[j, "Bathroom"]) and df.loc[i, "Bathroom"] != df.loc[j, "Bathroom"])
             or surface_diff > surface_diff_threshold):
@@ -163,44 +230,59 @@ def merge_all_df_and_treat_duplicates(ds):
                 if duplicates_count > 0 and (j - i) == duplicates_count + 1:
                     i = j - 1
                 break
+
+            i_url = df.loc[i, "Link"]
+            j_url = df.loc[j, "Link"]
+
+            if pd.isna(df.loc[j, "Photos"]):
+                continue
             
             #Skip the current j line duplicate treatment if both street names are not the same
             if pd.notna(df.loc[i, "Street_name_validity"]) and pd.notna(df.loc[j, "Street_name_validity"]) and df.loc[i, "Street_name"] != df.loc[j, "Street_name"]:
-                logging.info(f"Skipping comparison between accomodation line {i+2} and accomodation line {j+2} because the street names are different !")
+                logging.info(f"Skipping comparison between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because the street names are different !")
                 continue
                      
             i_city = df.loc[i, "City"].lower()
             j_city = df.loc[j, "City"].lower()
 
             #Skip the current j line duplicate treatment if both districts of a same city are not adjacent
-            if i_city == j_city and i_city in adjacent_districts.keys():
+            if i_city == j_city and i_city in areas_adjacent_to_districts.keys():
                 i_district = df.loc[i, "District"]
                 j_district = df.loc[j, "District"]
 
-                if pd.notna(i_district) and pd.notna(j_district) and i_district != j_district and j_district not in adjacent_districts[i_city][i_district]:
+                if pd.notna(i_district) and pd.notna(j_district) and i_district != j_district and j_district not in areas_adjacent_to_districts[i_city][i_district]["districts"]:
                     continue
-            
-            #Skip the current j line duplicate treatment if both cities are not adjacent
-            elif i_city in adjacent_cities.keys() and j_city not in adjacent_cities[i_city]:
-                continue
-            elif j_city in adjacent_cities.keys() and i_city not in adjacent_cities[j_city]:
-                continue
+            elif i_city != j_city:
+                i_district = df.loc[i, "District"]
+                j_district = df.loc[j, "District"]
 
-            if pd.isna(df.loc[j, "Photos"]):
-                continue
-            
-            i_city_coords = get_city_coordinates(i_city)
-            j_city_coords = get_city_coordinates(j_city)
-            distance_between_cities = calculate_haversine_distance(i_city_coords, j_city_coords)
+                if i_city in areas_adjacent_to_districts.keys() and pd.notna(i_district) and j_city not in areas_adjacent_to_districts[i_city][i_district]["cities"]:
+                    logging.info(f"Skipping comparison between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because the district of {i_district} and the city of {j_city} are not adjacent !")
+                    continue
+                elif j_city in areas_adjacent_to_districts.keys() and pd.notna(j_district) and i_city not in areas_adjacent_to_districts[j_city][j_district]["cities"]:
+                    logging.info(f"Skipping comparison between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because the district of {j_district} and the city of {i_city} are not adjacent !")
+                    continue
+                
+                #To avoid code duplication
+                i_city_in_adj_cities = i_city in adjacent_cities.keys()
+                j_city_in_adj_cities = j_city in adjacent_cities.keys()
 
-            #Skip the current j line duplicate treatment if the distance between the cities is too big
-            if distance_between_cities >= distance_between_cities_threshold:
-                continue
+                #Skip the current j line duplicate treatment if both cities are not adjacent
+                if i_city_in_adj_cities and j_city not in adjacent_cities[i_city]:
+                    continue     
+                elif j_city_in_adj_cities and i_city not in adjacent_cities[j_city]:
+                    continue
+                elif not i_city_in_adj_cities and not j_city_in_adj_cities:
+                    i_city_coords = get_city_coordinates(i_city)
+                    j_city_coords = get_city_coordinates(j_city)
+                    distance_between_cities = calculate_haversine_distance(i_city_coords, j_city_coords)
 
-            i_url = df.loc[i, "Link"]
-            j_url = df.loc[j, "Link"]
+                    #Skip the current j line duplicate treatment if the distance between the cities is too big
+                    if distance_between_cities >= distance_between_cities_threshold:
+                        logging.info(f"Skipping comparison between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because the distance between {i_city} and {j_city} is above {distance_between_cities_threshold} km !")
+                        continue
 
-            logging.info(f"Comparison between accomodation line {i+2} ( {i_url} ) and accomodation line {j+2} ( {j_url} )")
+            logging.info(f"Comparison between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} )")
 
             i_photos_url = df.loc[i, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
             j_photos_url = df.loc[j, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
@@ -229,6 +311,9 @@ def merge_all_df_and_treat_duplicates(ds):
                     continue
                 i_photo = cv2.imdecode(np.asarray(bytearray(i_photo_request.content), dtype=np.uint8), -1)
 
+                if i_photo.size == 0:
+                    logging.warning(f"The accomodation image {i_photo_url} haven't been successfully loaded !")
+
                 for j_photo_url, j_photo in j_loaded_photos.items():
                     metric_val = sift_similarity(i_photo, j_photo)
                     logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 3)}")
@@ -250,4 +335,4 @@ def merge_all_df_and_treat_duplicates(ds):
         i+=1
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/deduplicated/merged_accomodations_{ds}.csv", index=False)
 
-# merge_all_df_and_treat_duplicates("2025-02-01")
+# merge_all_df_and_treat_duplicates("2025-02-05")

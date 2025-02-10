@@ -219,7 +219,8 @@ def athome_lu_data_cleaning(ds):
     df["District"] = df["District"].replace({
         "Neudorf" : "Neudorf-Weimershof",
         "Weimershof" : "Neudorf-Weimershof",
-        "Pulvermuehle" : "Pulvermuhl"
+        "Pulvermuehle" : "Pulvermuhl",
+        "Verlorenkost" : "Bonnevoie"
     })
 
     #Replace "Centre ville" values by NA because they are not reliable (don't always reflect the real district)

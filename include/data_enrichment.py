@@ -1,6 +1,5 @@
 import pandas as pd
 import re
-import os
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 from airflow.models import Variable
@@ -24,6 +23,13 @@ garden_surface_reg = re.compile(
     "|(?<=garden) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm) *(?=garden)|(?<=jardin de )\d+(?:\.?,?\d+)? ?m(?:2|²)"
     "|(?<=jardin de \+/- )\d+(?:\.?,?\d+)? *m(?:2|²)|(?<=jardin) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *m *(?:2|²)", re.IGNORECASE
 )
+
+# exposition_reg = re.compile(
+#     #"south-west(?=-? ?facing)|(?<=facing )south-west|south-west (?=orientat)|(?<=facing )south-west|(?<=exposé )sud-ouest|(?<=exposée )sud-ouest|(?<=orienté )sud-ouest|(?<=orientée )sud-ouest" #South-west
+#     #"south-east(?=-? ?facing)|(?<=facing )south-east|south-east (?=orientat)|(?<=facing )south-east|(?<=exposée? )sud-est|(?<=orientée? )sud-est" #South-east
+#     #"south(?=-facing)|(?<=facing )south(?!-)|(?<=orientée? )sud(?!-)|(?<=orientée? )plein sud|(?<=exposée? )sud(?!-)" #South
+#     , re.IGNORECASE 
+# )
 
 #Terrace examples:
 #+/- 25 m2 terrace
