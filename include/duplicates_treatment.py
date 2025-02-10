@@ -163,7 +163,7 @@ def merge_all_df_and_treat_duplicates(ds):
             },
             "Gasperich" : {
                 "districts" : ["Cessange", "Hollerich", "Gare", "Bonnevoie"],
-                "cities" : ["leudelange", "roeser"]
+                "cities" : ["leudelange", "roeser", "hesperange"]
             },
             "Bonnevoie" : {
                 "districts" : ["Gasperich", "Gare", "Grund", "Pulvermuhl", "Hamm"],
@@ -269,8 +269,10 @@ def merge_all_df_and_treat_duplicates(ds):
 
                 #Skip the current j line duplicate treatment if both cities are not adjacent
                 if i_city_in_adj_cities and j_city not in adjacent_cities[i_city]:
+                    logging.info(f"Skipping comparision between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because the city of {i_city} and the city of {j_city} are not adjacent")
                     continue     
                 elif j_city_in_adj_cities and i_city not in adjacent_cities[j_city]:
+                    logging.info(f"Skipping comparision between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because the city of {i_city} and the city of {j_city} are not adjacent")
                     continue
                 elif not i_city_in_adj_cities and not j_city_in_adj_cities:
                     i_city_coords = get_city_coordinates(i_city)
