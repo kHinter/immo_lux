@@ -235,19 +235,12 @@ def athome_lu_data_cleaning(ds):
 
     df["City"] = df["City"].apply(lambda city: get_official_city(city))
 
-    #DEPRECATED (replaced by get_official_city())
-    # df["City"] = df["City"].replace({
-    #     "Capellen" : "Mamer", #Capellen is a district of Mamer
-    #     "Bascharage" : "Käerjeng", #Bascharage is a district of Käerjeng
-    #     "Clemency" : "Käerjeng", # Clemency is a district of Käerjeng
-    #     "Rodange" : "Pétange", #Rodange is a district of Pétange
-    # })
-
     df["District"] = df["District"].replace({
         "Neudorf" : "Neudorf-Weimershof",
         "Weimershof" : "Neudorf-Weimershof",
         "Pulvermuehle" : "Pulvermuhl",
-        "Verlorenkost" : "Bonnevoie"
+        "Verlorenkost" : "Bonnevoie",
+        "Kohlenberg" : "Cessange"
     })
 
     #Replace "Centre ville" values by NA because they are not reliable (don't always reflect the real district)

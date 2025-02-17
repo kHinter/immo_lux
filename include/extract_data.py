@@ -191,7 +191,13 @@ def extract_athome_data(part_number, total_parts, ds):
                         else:
                             item["Bedrooms"] = None
 
-                        bathroom = details.find("div", "characteristics-item characteristic.showers")
+                        showers = details.find("div", "characteristics-item characteristic.showers")
+                        if showers != None:
+                            item["Shower_room"] = showers.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Shower_room"] = None
+
+                        bathroom = details.find("div", "characteristics-item characteristic.bathrooms")
                         if bathroom != None:
                             item["Bathroom"] = bathroom.find("span", "characteristics-item-value").get_text()
                         else:

@@ -1,37 +1,37 @@
-def generate_report(ds):
+def generate_dq_report(ds):
     import pandas as pd
-    from datetime import date
     import jinja2
     import matplotlib.pyplot as plt
     import io
     import os
     import base64
     import numpy as np
-
-    airflow_home = os.environ["AIRFLOW_HOME"]
+    from airflow.models import Variable
 
     df_data = {
         "Immotop.lu" : {
             "steps" : {
                 "cleaned" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/cleaned/immotop_lu_{ds}.csv")
+                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv")
                 },
                 "enriched" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/enriched/immotop_lu_{ds}.csv")
+                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv")
                 }
             }
         },
         "Athome.lu" : {
             "steps" : {
                 "cleaned" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/cleaned/athome_last3d_{ds}.csv")
+                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv")
                 },
                 "enriched" : {
-                    "df" : pd.read_csv(f"{airflow_home}/dags/data/enriched/athome_last3d_{ds}.csv")
+                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv")
                 }
             }
         }
     }
+
+    airflow_home = os.environ["AIRFLOW_HOME"]
 
     #Load the HTML template
     html_template = jinja2.Environment(
@@ -96,3 +96,15 @@ def generate_report(ds):
     
     with open(f"{airflow_home}/dags/reports/dq_report_{ds}.html", "w") as f:
         f.write(reportText)
+
+def generate_duplicate_treatment_report(ds):
+    import pandas as pd
+    import jinja2
+    import os
+
+    airflow_home = os.environ["AIRFLOW_HOME"]
+
+    html_template = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(f"{airflow_home}/include/html_report_templates")
+        
+    ).get_template("dq_report_template.html")

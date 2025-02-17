@@ -1,6 +1,7 @@
 dags/data/raw/*
 dags/data/cleaned/*
 dags/data/enriched*
-dags/reports/*
 dags/data/deduplicated/*
+dags/data/tmp/*
+dags/reports/*
 __pycache__/

@@ -2,6 +2,7 @@ import logging
 import cv2
 import numpy as np
 import pandas as pd
+import re
 from airflow.models import Variable
 
 #Custom modules
@@ -20,14 +21,14 @@ def sift_similarity(img1, img2):
     kp_img1, desc_img1 = sift.detectAndCompute(img1, None)
     kp_img2, desc_img2 = sift.detectAndCompute(img2, None)
 
-    index_params = dict(algorithm=1, trees=5)  # K-D Tree (algorithm=1). Increase "trees" value to improve precision, decrease to improve speed
-    search_params = dict(checks=50)  #Amount of comparison. Increase to improve precision, decrease to improve speed
+    index_params = dict(algorithm=1, trees=12)  # K-D Tree (algorithm=1). Increase "trees" value to improve precision, decrease to improve speed
+    search_params = dict(checks=100)  #Amount of comparison. Increase to improve precision, decrease to improve speed
 
     flann = cv2.FlannBasedMatcher(index_params, search_params)
 
     # bf = cv2.BFMatcher(cv2.NORM_L2)
     matches = flann.knnMatch(desc_img1, desc_img2, k=2)
-    good_matches = [m for m, n in matches if m.distance < 0.2 * n.distance]
+    good_matches = [m for m, n in matches if m.distance < 0.25 * n.distance]
 
     if len(matches) == 0:
         return 0
@@ -80,7 +81,7 @@ def merge_all_df_and_treat_duplicates(ds):
     #1 is the default value (= no other duplicates)
     df["Duplicate_rank"] = 1
 
-    df = df.sort_values(by=["Price", "Bedrooms", "Bathroom", "Surface"]).reset_index(drop=True)
+    df = df.sort_values(by=["Price", "Bedrooms", "Bathroom", "Shower_room", "Surface"]).reset_index(drop=True)
 
     #Variables initialization
     areas_adjacent_to_districts = {
@@ -198,14 +199,21 @@ def merge_all_df_and_treat_duplicates(ds):
     ##Constants
 
     surface_diff_threshold = 5
-    photos_exactness_threshold = 0.045
+    photos_exactness_threshold = 0.03
     #To limit the amount of photos compared and reduce the similarity comparison computation time
     max_photos_treated_per_accomodation = 11
     #Distance expressed in km
     distance_between_cities_threshold = 6.7
+    #The photo number at which I need to stop the image similarity comparison between two accomodations if the sum of the similarity score of the previous comparison is equal to zero 
+    max_photo_number_threshold = 5
+
+    athome_img_id_reg = re.compile("(?<=\/)\w+(?=\.jpg)|(?<=\/)\w+(?=\.png)", re.IGNORECASE)
 
     i = 0
     df_len = len(df)
+
+    #To save the number of comparisons required before finding that two accomodations are duplicates
+    comparisons_number = []
 
     logging.info("Duplicates treatment has started")
 
@@ -214,22 +222,29 @@ def merge_all_df_and_treat_duplicates(ds):
         #The count of duplicated elements compared to i
         duplicates_count = 0
 
+        if df.loc[i, "Duplicate_rank"] > 1:
+            logging.info(f"Skipping line {i+2} ( {i_url} ) because line {i+2} has already been flagged as a duplicate during a previous comparison !")
+            i += 1
+            continue
+
         #If no images to compare then skip
         if pd.isna(df.loc[i, "Photos"]):
             i += 1
             continue
 
         for j in range (i+1, df_len):
-            surface_diff = df.loc[j, "Surface"] - df.loc[i, "Surface"]
+            surface_diff_abs = abs(df.loc[j, "Surface"] - df.loc[i, "Surface"])
 
             if (df.loc[i, "Price"] != df.loc[j, "Price"]
             or (pd.notna(df.loc[i, "Bedrooms"]) and pd.notna(df.loc[j, "Bedrooms"]) and df.loc[i, "Bedrooms"] != df.loc[j, "Bedrooms"])
             or (pd.notna(df.loc[i, "Bathroom"]) and pd.notna(df.loc[j, "Bathroom"]) and df.loc[i, "Bathroom"] != df.loc[j, "Bathroom"])
-            or surface_diff > surface_diff_threshold):
-                #Allow to skip series of duplicates
-                if duplicates_count > 0 and (j - i) == duplicates_count + 1:
-                    i = j - 1
+            or (pd.notna(df.loc[i, "Shower_room"]) and pd.notna(df.loc[j, "Shower_room"]) and df.loc[i, "Shower_room"] != df.loc[j, "Shower_room"])
+            or surface_diff_abs > surface_diff_threshold):
                 break
+
+            if df.loc[j, "Duplicate_rank"] > 1:
+                logging.info(f"Skipping comparison between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because line {j+2} has already been flagged as a duplicate during a previous comparison !")
+                continue
 
             i_url = df.loc[i, "Link"]
             j_url = df.loc[j, "Link"]
@@ -251,6 +266,7 @@ def merge_all_df_and_treat_duplicates(ds):
                 j_district = df.loc[j, "District"]
 
                 if pd.notna(i_district) and pd.notna(j_district) and i_district != j_district and j_district not in areas_adjacent_to_districts[i_city][i_district]["districts"]:
+                    logging.info(f"Skipping comparison between line {i+2} ( {i_url} ) and line {j+2} ( {j_url} ) because the districts of {i_district} and {j_district} are not adjacent !")
                     continue
             elif i_city != j_city:
                 i_district = df.loc[i, "District"]
@@ -289,52 +305,83 @@ def merge_all_df_and_treat_duplicates(ds):
             i_photos_url = df.loc[i, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
             j_photos_url = df.loc[j, "Photos"].split(" ")[:max_photos_treated_per_accomodation]
 
+            common_url = []
+            #Find if there is an id in common between the urls of the two accomodations
+            if df.loc[i, "Website"] == "athome" and df.loc[j, "Website"] == "athome":
+                duplicate_found = False
+
+                for i_photo_url in i_photos_url:
+                    match = athome_img_id_reg.search(i_photo_url)
+                    if match:
+                        common_url.append(match.group())
+                    else:
+                        logging.warning(f"Cannot extract the image id from {i_photo_url} !")
+                
+                for j_photo_url in j_photos_url:
+                    match = athome_img_id_reg.search(j_photo_url)
+                    if match:
+                        if match.group() in common_url:
+                            duplicates_count += 1
+                            df.loc[j, "Duplicate_rank"] = duplicates_count + 1
+
+                            logging.info("\tBoth accommodations have been identified and flagged as duplicates because they have at least one image id in common !")
+                            duplicate_found = True
+                            break
+                    else:
+                        logging.warning(f"Cannot extract the image id from {j_photo_url} !")
+                #Skip the current j line duplicate treatment
+                if duplicate_found:
+                    continue
+
             #Initialization of variables so they are accessible in the external for loops
             metric_val = 0
+            attempts = 0
+            similarity_score_sum = 0
 
             j_loaded_photos = {}
 
             #Pre-load the j accomodation photos to save computation time
             for j_photo_url in j_photos_url:
-                j_photo_request = utils.fetch_url_with_retries(j_photo_url)
+                j_photo = utils.load_img_from_url(j_photo_url)
 
-                #If the requests for j failed skip to j + 1
-                if j_photo_request.status_code != 200:
-                    continue
-
-                j_loaded_photos[j_photo_url] = cv2.imdecode(np.asarray(bytearray(j_photo_request.content), dtype=np.uint8), -1)
-                
+                if j_photo is not None:
+                    j_loaded_photos[j_photo_url] = j_photo
+                else:
+                    logging.warning(f"\tThe accomodation image {j_photo_url} haven't been successfully loaded !")
+            
             for i_photo_url in i_photos_url:
-                #Get the photo via HTML request
-                i_photo_request = utils.fetch_url_with_retries(i_photo_url)
-                    
-                #If the requests for i failed skip to i + 1
-                if i_photo_request.status_code != 200:
+                i_photo = utils.load_img_from_url(i_photo_url)
+
+                if i_photo is None:
+                    logging.warning(f"\tThe accomodation image {i_photo_url} haven't been successfully loaded !")
                     continue
-                i_photo = cv2.imdecode(np.asarray(bytearray(i_photo_request.content), dtype=np.uint8), -1)
 
-                if i_photo.size == 0:
-                    logging.warning(f"The accomodation image {i_photo_url} haven't been successfully loaded !")
-
+                duplicate_found = False
                 for j_photo_url, j_photo in j_loaded_photos.items():
                     metric_val = sift_similarity(i_photo, j_photo)
-                    logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 3)}")
+                    logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 5)}")
+                    
+                    similarity_score_sum += metric_val
+                    attempts += 1
 
                     if metric_val >= photos_exactness_threshold:
                         duplicates_count += 1
                         df.loc[j, "Duplicate_rank"] = duplicates_count + 1
 
-                        logging.info(f"\tBoth accommodations have been identified and flagged as duplicates !")
+                        logging.info(f"\tBoth accommodations have been identified and flagged as duplicates after {attempts} comparisons !")
+                        duplicate_found = True
+                        comparisons_number.append(attempts)
                         break
                 
-                if metric_val >= photos_exactness_threshold:
+                if duplicate_found:
                     break
             
-            #Allow to skip the series of adjacent duplicates
-            if duplicates_count > 0 and (j - i) == duplicates_count + 1:
-                i = j - 1
-
+            logging.info(f"\t Sum of similarity score : {similarity_score_sum}")
         i+=1
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/deduplicated/merged_accomodations_{ds}.csv", index=False)
+
+    #Save the metadata
+    df_comparisons_number = pd.DataFrame({"Comparisons_number" : comparisons_number})
+    df_comparisons_number.to_csv(f"{Variable.get('immo_lux_data_folder')}/tmp/comp_number_{ds}.csv", index=False)
 
 # merge_all_df_and_treat_duplicates("2025-02-05")

@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from include.extract_data import extract_immotop_lu_data, extract_athome_data, merge_athome_raw_data_parts
 from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_cleaning
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
-from include.reports import generate_report
+from include.reports import generate_dq_report
 from include.duplicates_treatment import merge_all_df_and_treat_duplicates
 
 if Variable.get("immo_lux_data_folder", default_var=None) == None:
@@ -37,7 +37,7 @@ with DAG(
     "immo_dag",
     default_args=default_args,
     description="Web scraping of several real estate listing websites",
-    schedule_interval='@daily',
+    schedule='@daily',
     catchup=False
 ) as dag:
     extract_data_from_immotop_lu = PythonOperator(
@@ -99,8 +99,8 @@ with DAG(
     )
 
     gen_report = PythonOperator(
-        task_id = "generate_report",
-        python_callable=generate_report,
+        task_id = "generate_dq_report",
+        python_callable=generate_dq_report,
     )
 
     extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
