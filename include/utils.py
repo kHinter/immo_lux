@@ -1,8 +1,8 @@
 import time
 import requests
 import logging
-import cv2
-import numpy as np
+from PIL import Image
+from io import BytesIO
 
 def fetch_url_with_retries(url, retries=5, delay=2, headers=None):
     for attempt in range(retries):
@@ -12,9 +12,10 @@ def fetch_url_with_retries(url, retries=5, delay=2, headers=None):
             logging.warning(f"The get request for {url} timed out !")
             time.sleep(delay)
 
-def load_img_from_url(url):
+def get_image_from_url(url):
     response = fetch_url_with_retries(url)
     
     if response.status_code == 200:
-        return cv2.imdecode(np.asarray(bytearray(response.content), dtype=np.uint8), cv2.IMGREAD_UNCHANGED)
+        img = Image.open(BytesIO(response.content)).convert("RGB")  # Ouvrir l'image à partir du flux binaire
+        return img
     return None

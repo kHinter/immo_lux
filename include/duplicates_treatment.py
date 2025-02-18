@@ -1,38 +1,45 @@
 import logging
-import cv2
 import numpy as np
 import pandas as pd
 import re
 from airflow.models import Variable
+
+#ML packages
+import torch
+import torchvision.models as models
+import torchvision.transforms as transforms
+import torch.nn.functional as F
 
 #Custom modules
 from . import utils
 
 # from utils import fetch_url_with_retries
 
-def sift_similarity(img1, img2):
-    nfeatures = 500
-    sift = cv2.SIFT_create(nfeatures=nfeatures)
+def get_embedding(image, model, transform):
+    #Add a batch dimension
+    image = transform(image).unsqueeze(0)
+    with torch.no_grad():
+        #Extract features
+        embedding = model(image)
+    #Transform to 1D vector
+    return embedding.flatten()
 
-    #Image preprocessing
-    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-    img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+def init_resnet():
+    #Force the CPU usage
+    device = torch.device("cpu")  
+    model = models.resnet50(pretrained=True).to(device)
+    #Evaluation mode
+    model.eval()
 
-    kp_img1, desc_img1 = sift.detectAndCompute(img1, None)
-    kp_img2, desc_img2 = sift.detectAndCompute(img2, None)
+    # Transformation de l'image (prétraitement pour ResNet)
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),  # Redimensionner à 224x224 (taille d'entrée pour ResNet50)
+        transforms.ToTensor(),  # Convertir en tenseur
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalisation
+    ])
 
-    index_params = dict(algorithm=1, trees=12)  # K-D Tree (algorithm=1). Increase "trees" value to improve precision, decrease to improve speed
-    search_params = dict(checks=100)  #Amount of comparison. Increase to improve precision, decrease to improve speed
-
-    flann = cv2.FlannBasedMatcher(index_params, search_params)
-
-    # bf = cv2.BFMatcher(cv2.NORM_L2)
-    matches = flann.knnMatch(desc_img1, desc_img2, k=2)
-    good_matches = [m for m, n in matches if m.distance < 0.25 * n.distance]
-
-    if len(matches) == 0:
-        return 0
-    return len(good_matches) / nfeatures
+    return model, transform
+    
 
 def get_city_coordinates(city_name):
     response = utils.fetch_url_with_retries(f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&countrycode=lu&key={Variable.get('opencage_api_key')}")
@@ -199,7 +206,7 @@ def merge_all_df_and_treat_duplicates(ds):
     ##Constants
 
     surface_diff_threshold = 5
-    photos_exactness_threshold = 0.03
+    photos_exactness_threshold = 0.89
     #To limit the amount of photos compared and reduce the similarity comparison computation time
     max_photos_treated_per_accomodation = 11
     #Distance expressed in km
@@ -215,6 +222,7 @@ def merge_all_df_and_treat_duplicates(ds):
     #To save the number of comparisons required before finding that two accomodations are duplicates
     comparisons_number = []
 
+    resnet_model, resnet_transform = init_resnet()
     logging.info("Duplicates treatment has started")
 
     #Using a while in order to change the incrementation value
@@ -334,7 +342,7 @@ def merge_all_df_and_treat_duplicates(ds):
                     continue
 
             #Initialization of variables so they are accessible in the external for loops
-            metric_val = 0
+            cosine_sim = 0
             attempts = 0
             similarity_score_sum = 0
 
@@ -342,7 +350,7 @@ def merge_all_df_and_treat_duplicates(ds):
 
             #Pre-load the j accomodation photos to save computation time
             for j_photo_url in j_photos_url:
-                j_photo = utils.load_img_from_url(j_photo_url)
+                j_photo = utils.get_image_from_url(j_photo_url)
 
                 if j_photo is not None:
                     j_loaded_photos[j_photo_url] = j_photo
@@ -350,21 +358,25 @@ def merge_all_df_and_treat_duplicates(ds):
                     logging.warning(f"\tThe accomodation image {j_photo_url} haven't been successfully loaded !")
             
             for i_photo_url in i_photos_url:
-                i_photo = utils.load_img_from_url(i_photo_url)
+                i_photo = utils.get_image_from_url(i_photo_url)
 
                 if i_photo is None:
                     logging.warning(f"\tThe accomodation image {i_photo_url} haven't been successfully loaded !")
                     continue
+                
+                i_embedding = get_embedding(i_photo, resnet_model, resnet_transform)
 
                 duplicate_found = False
                 for j_photo_url, j_photo in j_loaded_photos.items():
-                    metric_val = sift_similarity(i_photo, j_photo)
-                    logging.info(f"\tSIFT similarity score between {i_photo_url} and {j_photo_url} = {round(metric_val, 5)}")
+                    j_embedding = get_embedding(j_photo, resnet_model, resnet_transform)
+
+                    cosine_sim = F.cosine_similarity(i_embedding, j_embedding, dim=0).item()
+                    logging.info(f"\tCosine similarity score between {i_photo_url} and {j_photo_url} = {round(cosine_sim, 5)}")
                     
-                    similarity_score_sum += metric_val
+                    similarity_score_sum += cosine_sim
                     attempts += 1
 
-                    if metric_val >= photos_exactness_threshold:
+                    if cosine_sim >= photos_exactness_threshold:
                         duplicates_count += 1
                         df.loc[j, "Duplicate_rank"] = duplicates_count + 1
 

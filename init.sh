@@ -36,6 +36,7 @@ airflow_init()
     pip install matplotlib
     pip install Unidecode
     pip install openpyxl
+    pip install torch torchvision
     
     airflow db init
     sudo apt-get install postgresql postgresql-contrib
