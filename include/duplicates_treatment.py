@@ -9,37 +9,33 @@ import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
 import torch.nn.functional as F
+import timm
 
 #Custom modules
 from . import utils
 
-# from utils import fetch_url_with_retries
+# from utils import fetch_url_with_retries, get_image_from_url
 
 def get_embedding(image, model, transform):
     #Add a batch dimension
     image = transform(image).unsqueeze(0)
     with torch.no_grad():
         #Extract features
-        embedding = model(image)
-    #Transform to 1D vector
-    return embedding.flatten()
+        embedding = model(image).squeeze()
+    return embedding
 
-def init_resnet():
-    #Force the CPU usage
-    device = torch.device("cpu")  
-    model = models.resnet50(pretrained=True).to(device)
-    #Evaluation mode
-    model.eval()
+def init_dinoV2():
+    device = torch.device("cpu")
+    model = timm.create_model("vit_small_patch14_dinov2.lvd142m", pretrained=True).to(device)
+    model.eval() 
 
-    # Transformation de l'image (prétraitement pour ResNet)
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),  # Redimensionner à 224x224 (taille d'entrée pour ResNet50)
-        transforms.ToTensor(),  # Convertir en tenseur
+        transforms.Resize((518, 518)),
+        transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # Normalisation
     ])
 
     return model, transform
-    
 
 def get_city_coordinates(city_name):
     response = utils.fetch_url_with_retries(f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&countrycode=lu&key={Variable.get('opencage_api_key')}")
@@ -206,7 +202,7 @@ def merge_all_df_and_treat_duplicates(ds):
     ##Constants
 
     surface_diff_threshold = 5
-    photos_exactness_threshold = 0.89
+    photos_exactness_threshold = 0.88
     #To limit the amount of photos compared and reduce the similarity comparison computation time
     max_photos_treated_per_accomodation = 11
     #Distance expressed in km
@@ -221,8 +217,9 @@ def merge_all_df_and_treat_duplicates(ds):
 
     #To save the number of comparisons required before finding that two accomodations are duplicates
     comparisons_number = []
+    accomodations_embeddings = {}
 
-    resnet_model, resnet_transform = init_resnet()
+    dinoV2_model, dinoV2_transform = init_dinoV2()
     logging.info("Duplicates treatment has started")
 
     #Using a while in order to change the incrementation value
@@ -233,11 +230,13 @@ def merge_all_df_and_treat_duplicates(ds):
         if df.loc[i, "Duplicate_rank"] > 1:
             logging.info(f"Skipping line {i+2} ( {i_url} ) because line {i+2} has already been flagged as a duplicate during a previous comparison !")
             i += 1
+            accomodations_embeddings.pop(i+2, None)
             continue
 
         #If no images to compare then skip
         if pd.isna(df.loc[i, "Photos"]):
             i += 1
+            accomodations_embeddings.pop(i+2, None)
             continue
 
         for j in range (i+1, df_len):
@@ -346,30 +345,31 @@ def merge_all_df_and_treat_duplicates(ds):
             attempts = 0
             similarity_score_sum = 0
 
-            j_loaded_photos = {}
+            if j+2 not in accomodations_embeddings.keys():
+                accomodations_embeddings[j+2] = {}
+                #Pre-load the j accomodation embeddings to save computation time
+                for j_photo_url in j_photos_url:
+                    j_photo = utils.get_image_from_url(j_photo_url)
 
-            #Pre-load the j accomodation photos to save computation time
-            for j_photo_url in j_photos_url:
-                j_photo = utils.get_image_from_url(j_photo_url)
-
-                if j_photo is not None:
-                    j_loaded_photos[j_photo_url] = j_photo
-                else:
-                    logging.warning(f"\tThe accomodation image {j_photo_url} haven't been successfully loaded !")
+                    if j_photo is not None:
+                        accomodations_embeddings[j+2][j_photo_url] = get_embedding(j_photo, dinoV2_model, dinoV2_transform)
+                    else:
+                        logging.warning(f"\tThe accomodation image {j_photo_url} haven't been successfully loaded !")
             
             for i_photo_url in i_photos_url:
-                i_photo = utils.get_image_from_url(i_photo_url)
-
-                if i_photo is None:
-                    logging.warning(f"\tThe accomodation image {i_photo_url} haven't been successfully loaded !")
-                    continue
                 
-                i_embedding = get_embedding(i_photo, resnet_model, resnet_transform)
+                if i+2 not in accomodations_embeddings.keys():
+                    i_photo = utils.get_image_from_url(i_photo_url)
+
+                    if i_photo is None:
+                        logging.warning(f"\tThe accomodation image {i_photo_url} haven't been successfully loaded !")
+                        continue
+                    i_embedding = get_embedding(i_photo, dinoV2_model, dinoV2_transform)
+                else:
+                    i_embedding = accomodations_embeddings[i+2][i_photo_url]
 
                 duplicate_found = False
-                for j_photo_url, j_photo in j_loaded_photos.items():
-                    j_embedding = get_embedding(j_photo, resnet_model, resnet_transform)
-
+                for j_photo_url, j_embedding in accomodations_embeddings[j+2].items():
                     cosine_sim = F.cosine_similarity(i_embedding, j_embedding, dim=0).item()
                     logging.info(f"\tCosine similarity score between {i_photo_url} and {j_photo_url} = {round(cosine_sim, 5)}")
                     
@@ -390,10 +390,11 @@ def merge_all_df_and_treat_duplicates(ds):
             
             logging.info(f"\t Sum of similarity score : {similarity_score_sum}")
         i+=1
+        accomodations_embeddings.pop(i+2, None)
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/deduplicated/merged_accomodations_{ds}.csv", index=False)
 
     #Save the metadata
     df_comparisons_number = pd.DataFrame({"Comparisons_number" : comparisons_number})
     df_comparisons_number.to_csv(f"{Variable.get('immo_lux_data_folder')}/tmp/comp_number_{ds}.csv", index=False)
 
-# merge_all_df_and_treat_duplicates("2025-02-05")
+# merge_all_df_and_treat_duplicates("2025-02-10")
