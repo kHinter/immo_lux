@@ -6,6 +6,18 @@ from airflow.models import Variable
 from . import utils
 # from utils import fetch_url_with_retries
 
+def save_athome_df(accomodations, ds, part_number):
+    import pandas as pd
+    df = pd.DataFrame(accomodations)
+    df["Snapshot_day"] = ds
+    df["Website"] = "athome"
+
+    parent_folder_path = f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}"
+    
+    if not os.path.exists(parent_folder_path):
+        os.makedirs(parent_folder_path)
+    df.to_csv(f"{parent_folder_path}/part_{part_number}.csv", index=False)
+
 def extract_athome_data(part_number, total_parts, ds):
     #Import here to optimize the DAG preprocessing
     from selenium import webdriver
@@ -65,23 +77,28 @@ def extract_athome_data(part_number, total_parts, ds):
         max_page = int(s.find("a", "page last").get_text())
 
         #Calculation of starting and ending page scraping limits
-
         #The page at which the scraping will start
         current_page = (part_number - 1) * (max_page // total_parts) + 1
         remainder = max_page % total_parts
 
         if part_number != 1 and part_number - 1 <= remainder:
-            current_page += 1
+                current_page += 1
 
         max_page = current_page + (max_page // total_parts) - 1
         if part_number <= remainder:
             max_page += 1
 
-        logging.info("Scraping of athome.lu has started !")
-
-        proceed = True
         accomodations = []
+        proceed = True
 
+        #Retrieve the data already scraped if the task previously failed
+        if os.path.exists(f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}/part_{part_number}.csv"):
+            logging.info(f"Resuming the scraping of athome.lu at page {current_page} !")
+            df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}/part_{part_number}.csv")
+            current_page = len(df) // 20 + 1
+            accomodations = df.to_dict("records")
+
+        logging.info("Scraping of athome.lu has started !")
         while proceed:
             current_url = Variable.get("immo_lux_base_url_athome_lu") + str(current_page)
             page = utils.fetch_url_with_retries(current_url, headers=headers)
@@ -125,20 +142,28 @@ def extract_athome_data(part_number, total_parts, ds):
                             #Very rare case
                             if len(splitted_str) > 1:
                                 item["District"] = splitted_str[1]
-
-                        #Go in the accomodation page to get additionnal informations
-                        driver.get(item["Link"])
-
-                        WebDriverWait(driver, 2)
-                        max_waiting_time = 10
                         
                         try:
-                            WebDriverWait(driver, max_waiting_time).until(EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery")))
-                        except TimeoutException:
+                            #Go in the accomodation page to get additionnal informations
                             driver.get(item["Link"])
-                            WebDriverWait(driver, max_waiting_time).until(EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery")))
-                
-                        WebDriverWait(driver, max_waiting_time).until(EC.presence_of_all_elements_located((By.TAG_NAME, "img")))
+
+                            WebDriverWait(driver, 2.5)
+                            max_waiting_time = 10
+                            
+                            try:
+                                WebDriverWait(driver, max_waiting_time).until(EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery")))
+                            except TimeoutException:
+                                driver.get(item["Link"])
+                                WebDriverWait(driver, max_waiting_time).until(EC.presence_of_element_located((By.CLASS_NAME, "showHideDesktopGallery")))
+                    
+                            WebDriverWait(driver, max_waiting_time).until(EC.presence_of_all_elements_located((By.TAG_NAME, "img")))
+                        except Exception as e:
+                            logging.error(f"An error occured while trying to fetch the page {item['Link']} : {str(e)}")
+
+                            if current_page != 1:
+                                #current_page * 20 because each page contains 20 accomodations
+                                accomodations = accomodations[:(current_page-1) * 20]
+                                save_athome_df(accomodations, ds, part_number)
 
                         html = driver.page_source
                         details = BeautifulSoup(html, "html.parser")
@@ -332,16 +357,7 @@ def extract_athome_data(part_number, total_parts, ds):
                 current_page+=1
     
     #Persistance of data
-    df = pd.DataFrame(accomodations)
-    df["Snapshot_day"] = ds
-    df["Website"] = "athome"
-
-    parent_folder_path = f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}"
-    
-    if not os.path.exists(parent_folder_path):
-        os.makedirs(parent_folder_path)
-    df.to_csv(f"{parent_folder_path}/part_{part_number}.csv", index=False)
-
+    save_athome_df(accomodations, ds, part_number)
     logging.info("Scraping of athome.lu successfully ran !")
 
 def merge_athome_raw_data_parts(ds):
@@ -360,7 +376,6 @@ def merge_athome_raw_data_parts(ds):
 
     #Remove the temporary folder and all its content
     shutil.rmtree(folder)
-
 
 def extract_immotop_lu_data(ds):
     #Import here to optimize the DAG preprocessing

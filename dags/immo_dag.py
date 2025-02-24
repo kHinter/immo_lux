@@ -29,8 +29,8 @@ default_args = {
     "email" : Variable.get("email"),
     "email_on_failure" : True,
     "email_on_retry" : True,
-    "retries" : 1,
-    "retry_delay" : timedelta(minutes=2)
+    "retries" : 3,
+    "retry_delay" : timedelta(seconds=10)
 }
 
 with DAG(
@@ -102,9 +102,9 @@ with DAG(
         task_id = "generate_dq_report",
         python_callable=generate_dq_report,
     )
-
-    extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
+    
     extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment
+    extract_data_from_athome_lu >> extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
 
     athome_lu_data_enrichment >> gen_report
     immotop_lu_data_enrichment >> gen_report
