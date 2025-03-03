@@ -35,7 +35,6 @@ def generate_dq_report(ds):
 
     #Load the HTML template
     html_template = jinja2.Environment(
-        #loader=jinja2.FileSystemLoader("/root/airflow/include/html_report_templates")
         loader=jinja2.FileSystemLoader(f"{airflow_home}/include/html_report_templates")
         
     ).get_template("dq_report_template.html")
@@ -96,15 +95,3 @@ def generate_dq_report(ds):
     
     with open(f"{airflow_home}/dags/reports/dq_report_{ds}.html", "w") as f:
         f.write(reportText)
-
-def generate_duplicate_treatment_report(ds):
-    import pandas as pd
-    import jinja2
-    import os
-
-    airflow_home = os.environ["AIRFLOW_HOME"]
-
-    html_template = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(f"{airflow_home}/include/html_report_templates")
-        
-    ).get_template("dq_report_template.html")

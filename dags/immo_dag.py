@@ -3,7 +3,6 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
 from airflow.utils.dates import days_ago
-from airflow.utils.task_group import TaskGroup
 
 import sys
 import os
@@ -12,7 +11,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Local includes
-from include.extract_data import extract_immotop_lu_data, extract_athome_data, merge_athome_raw_data_parts
+from include.extract_data import extract_immotop_lu_data, extract_athome_data
 from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_cleaning
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
 from include.reports import generate_dq_report
@@ -29,8 +28,8 @@ default_args = {
     "email" : Variable.get("email"),
     "email_on_failure" : True,
     "email_on_retry" : True,
-    "retries" : 3,
-    "retry_delay" : timedelta(seconds=10)
+    "retries" : 1,
+    "retry_delay" : timedelta(minutes=1)
 }
 
 with DAG(
@@ -45,33 +44,10 @@ with DAG(
         python_callable=extract_immotop_lu_data
     )
 
-    #TaskGroup to split the scraping of athome.lu in two parts so they can run parallelly
-    with TaskGroup("extract_data_from_athome_lu") as extract_data_from_athome_lu:
-        scraping_part1 = PythonOperator(
-            task_id = "scraping_part1",
-            python_callable=extract_athome_data,
-            op_kwargs={
-                "part_number" : 1,
-                "total_parts" : 2
-            }
-        )
-
-        scraping_part2 = PythonOperator(
-            task_id = "scraping_part2",
-            python_callable=extract_athome_data,
-            op_kwargs={
-                "part_number" : 2,
-                "total_parts" : 2
-            }
-        )
-
-        merge_athome_raw_data_parts = PythonOperator(
-            task_id = "merge_athome_raw_data_parts",
-            python_callable=merge_athome_raw_data_parts
-        )
-
-        scraping_part1 >> merge_athome_raw_data_parts
-        scraping_part2 >> merge_athome_raw_data_parts
+    extract_data_from_athome_lu = PythonOperator(
+            task_id = "extract_data_from_athome_lu",
+            python_callable=extract_athome_data
+    )
 
     transform_data_from_immotop_lu = PythonOperator(
         task_id = "transform_data_from_immotop_lu",
@@ -104,7 +80,7 @@ with DAG(
     )
     
     extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment
-    extract_data_from_athome_lu >> extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
+    extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
 
     athome_lu_data_enrichment >> gen_report
     immotop_lu_data_enrichment >> gen_report

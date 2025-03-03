@@ -4,10 +4,14 @@ import logging
 from PIL import Image
 from io import BytesIO
 
-def fetch_url_with_retries(url, retries=5, delay=2, headers=None):
+def fetch_url_with_retries(url, retries=5, delay=5, headers=None):
     for attempt in range(retries):
         try:
-            return requests.get(url, timeout=8, headers=headers)
+            response = requests.get(url, timeout=12, headers=headers)
+            if response.status_code != 404:
+                return response
+            else:
+                logging.warning(f"404 error for {url} !")
         except requests.exceptions.ReadTimeout:
             logging.warning(f"The get request for {url} timed out !")
             time.sleep(delay)

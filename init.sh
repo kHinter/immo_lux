@@ -20,10 +20,9 @@ airflow_init()
     source venv/bin/activate
     sudo apt-get install libpq-dev
 
-    #Setup of AIRFLOW_HOME environment variable
-    if ! grep -q "AIRFLOW_HOME" ~/.bashrc; then
-        echo "export AIRFLOW_HOME=/home/airflow" >> ~/.bashrc
-    fi
+    #Set AIRFLOW_HOME variable for all users
+    echo 'AIRFLOW_HOME="/home/airflow"' | sudo tee -a /etc/environment
+    echo "AIRFLOW_HOME environment variable set to : {$AIRFLOW_HOME}"
 
     #Install airflow working with postgresql database
     pip install "apache-airflow[postgres]==2.5.0" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.5.0/constraints-3.7.txt"
@@ -36,7 +35,7 @@ airflow_init()
     pip install matplotlib
     pip install Unidecode
     pip install openpyxl
-    pip install torch torchvision
+    pip install torch torchvision timm
     
     airflow db init
     sudo apt-get install postgresql postgresql-contrib
