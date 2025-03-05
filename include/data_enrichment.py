@@ -24,12 +24,17 @@ garden_surface_reg = re.compile(
     "|(?<=jardin de \+/- )\d+(?:\.?,?\d+)? *m(?:2|²)|(?<=jardin) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *m *(?:2|²)", re.IGNORECASE
 )
 
-# exposition_reg = re.compile(
-#     #"south-west(?=-? ?facing)|(?<=facing )south-west|south-west (?=orientat)|(?<=facing )south-west|(?<=exposé )sud-ouest|(?<=exposée )sud-ouest|(?<=orienté )sud-ouest|(?<=orientée )sud-ouest" #South-west
-#     #"south-east(?=-? ?facing)|(?<=facing )south-east|south-east (?=orientat)|(?<=facing )south-east|(?<=exposée? )sud-est|(?<=orientée? )sud-est" #South-east
-#     #"south(?=-facing)|(?<=facing )south(?!-)|(?<=orientée? )sud(?!-)|(?<=orientée? )plein sud|(?<=exposée? )sud(?!-)" #South
-#     , re.IGNORECASE 
-# )
+exposition_reg = re.compile(
+    "south-west(?= facing)|south-west(?=-facing)|(?<=facing )south-west|south-west (?=orientat)|(?<=facing )south-west|(?<=exposé )sud(?:-| )?ouest|(?<=exposée )sud(?:-| )?ouest|(?<=orienté )sud(?:-| )?ouest|(?<=orientée )sud(?:-| )?ouest" #South-west
+    "|south-east(?= facing)|south-east(?=-facing)|(?<=facing )south-east|south-east (?=orientat)|(?<=facing )south-east|(?<=exposé )sud(?:-| )?est|(?<=exposée )sud(?:-| )?est|(?<=orienté )sud(?:-| )?est|(?<=orientée )sud(?:-| )?est" #South-east
+    "|south(?=-facing)|(?<=facing )south(?!-)|south(?=ern exposure)|(?<=orienté )sud(?!-)|(?<=orientée )sud(?!-)|(?<=orienté plein )sud|(?<=orientée plein )sud|(?<=exposé )sud(?!-)|(?<=exposée )sud(?!-)|(?<=exposition )sud|(?<=exposition plein )sud|(?<=exposée plein )sud|(?<=exposé plein )sud" #South
+    "|north-west(?= facing)|north-west(?=-facing)|(?<=facing )north-west|north-west (?=orientat)|(?<=facing )north-west|(?<=exposé )nord(?:-| )?ouest|(?<=exposée )nord(?:-| )?ouest|(?<=orienté )nord(?:-| )?ouest|(?<=orientée )nord(?:-| )?ouest" #North-west
+    "|north-east(?= facing)|north-east(?=-facing)|(?<=facing )north-east|north-east (?=orientat)|(?<=facing )north-east|(?<=exposé )nord(?:-| )?est|(?<=exposée )nord(?:-| )?est|(?<=orienté )nord(?:-| )?est|(?<=orientée )nord(?:-| )?est" #North-east
+    "|(?<!-)(?<!h)west(?=-facing)|(?<!-)(?<!h)west(?= facing)|(?<=facing )west|(?<=orientation )ouest|(?<=exposition )ouest" #West
+    "|(?<!-)(?<!h)east(?=-facing)|(?<!-)(?<!h)east(?= facing)|(?<=facing )east|(?<=orientation )est|(?<=exposition )est" #East
+    "|north(?=-facing)|(?<=facing )north(?!-)|north(?=ern exposure)|(?<=orienté )nord(?!-)|(?<=orientée )nord(?!-)|(?<=orienté plein )nord|(?<=orientée plein )nord|(?<=exposé )nord(?!-)|(?<=exposée )nord(?!-)|(?<=exposition )nord|(?<=exposition plein )nord|(?<=exposée plein )nord|(?<=exposé plein )nord" #North
+    , re.IGNORECASE 
+)
 
 #Terrace examples:
 #+/- 25 m2 terrace
@@ -117,13 +122,31 @@ def get_balcony_surface_from_desc(description):
 def get_garden_surface_from_desc(description):
     match = garden_surface_reg.search(description)
     if match:
-        return match.group(0).strip()#.replace("m2", "").translate(surface_trans_table).replace(" 2", "").replace(",", ".")
+        return match.group(0).strip().replace("m2", "").translate(surface_trans_table).replace(" 2", "").replace(",", ".")
     return None
 
 def get_agency_fees_from_desc(description):
     no_agency_fees_match = no_agency_fees_reg.search(description)
     if no_agency_fees_match:
         return 0
+
+def get_exposition_from_desc(description):
+    french_to_english_trans = {
+        "sud-ouest": "south-west",
+        "sud-est": "south-east",
+        "sud": "south",
+        "nord-ouest": "north-west",
+        "nord-est": "north-east",
+        "ouest": "west",
+        "est": "east"
+    }
+    
+    match = exposition_reg.search(description)
+    if match:
+        exposition = match.group(0).strip().lower().replace(" ", "-")
+        return french_to_english_trans.get(exposition, exposition)
+
+    return None
 
 def immotop_lu_enrichment(ds):
     df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv")
@@ -142,6 +165,8 @@ def immotop_lu_enrichment(ds):
     df.loc[df["Is_furnished"].isna(), "Is_furnished"] = df.loc[df["Is_furnished"].isna(), "Description"].apply(lambda description: get_is_furnished_from_desc(description) if pd.notna(description) else pd.NA)
     df.loc[df["Agency_fees"].isna(), "Agency_fees"] = df.loc[df["Agency_fees"].isna(), "Description"].apply(lambda description: get_agency_fees_from_desc(description) if pd.notna(description) else pd.NA)
     df.loc[df["Is_flat"].isna(), "Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
+ 
+    df["Exposition"] = df["Description"].apply(lambda description: get_exposition_from_desc(description) if pd.notna(description) else pd.NA)
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", index=False)
 
@@ -169,8 +194,8 @@ def athome_lu_enrichment(ds):
     df.loc[df["Has_balcony"].isna(), "Has_balcony"] = df.loc[df["Has_balcony"].isna(), "Balcony_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
     df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Terrace_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
     df.loc[df["Has_garden"].isna(), "Has_garden"] = df.loc[df["Has_garden"].isna(), "Garden_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
-
+    df.loc[df["Exposition"].isna(), "Exposition"] = df["Description"].apply(lambda description: get_exposition_from_desc(description) if pd.notna(description) else pd.NA)
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv", index=False)
 
-# immotop_lu_enrichment()
-# athome_lu_enrichment()
+# immotop_lu_enrichment("2025-03-02")
+# athome_lu_enrichment("2025-03-02")

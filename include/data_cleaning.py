@@ -243,6 +243,18 @@ def athome_lu_data_cleaning(ds):
         "Kohlenberg" : "Cessange"
     })
 
+    #Translation of exposition from french to english
+    df["Exposition"] = df["Exposition"].replace({
+        "Nord" : "north",
+        "Nord-Est" : "north-east",
+        "Nord-Ouest" : "north-west",
+        "Ouest" : "west",
+        "Est" : "east",
+        "Sud" : "south",
+        "Sud-Est" : "south-east",
+        "Sud-Ouest" : "south-west"
+    })
+
     #Replace "Centre ville" values by NA because they are not reliable (don't always reflect the real district)
     df["District"] = df["District"].replace("Centre ville", pd.NA)
 

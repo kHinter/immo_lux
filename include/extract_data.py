@@ -394,4 +394,4 @@ def extract_immotop_lu_data(ds):
 
     logging.info("Scraping of immotop.lu is successfully finished !")
 
-# extract_athome_data("2025-02-27")
+# extract_athome_data("2025-03-03")
