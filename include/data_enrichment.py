@@ -36,6 +36,16 @@ exposition_reg = re.compile(
     , re.IGNORECASE 
 )
 
+insulation_class_reg = re.compile(
+    "(?<=isolation thermique: )[A-G]|(?<=thermal protection class: )[A-G]|(?<=thermal insulation: )[A-G]"
+    , re.IGNORECASE
+)
+
+energy_class_reg = re.compile(
+    "(?<=energy class )[A-G]|(?<=energy class: )[A-G]|(?<=classe énergétique )[A-G]|(?<=classe énergétique : )[A-G]"
+    , re.IGNORECASE
+)
+
 #Terrace examples:
 #+/- 25 m2 terrace
 #terrace of
@@ -140,12 +150,24 @@ def get_exposition_from_desc(description):
         "ouest": "west",
         "est": "east"
     }
-    
+
     match = exposition_reg.search(description)
     if match:
         exposition = match.group(0).strip().lower().replace(" ", "-")
         return french_to_english_trans.get(exposition, exposition)
 
+    return None
+
+def get_insulation_class_from_desc(description):
+    match = insulation_class_reg.search(description)
+    if match:
+        return match.group(0)
+    return None
+
+def get_energy_class_from_desc(description):
+    match = energy_class_reg.search(description)
+    if match:
+        return match.group(0)
     return None
 
 def immotop_lu_enrichment(ds):
@@ -167,6 +189,8 @@ def immotop_lu_enrichment(ds):
     df.loc[df["Is_flat"].isna(), "Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
  
     df["Exposition"] = df["Description"].apply(lambda description: get_exposition_from_desc(description) if pd.notna(description) else pd.NA)
+    df["Insulation_class"] = df["Description"].apply(lambda description: get_insulation_class_from_desc(description) if pd.notna(description) else pd.NA)
+    df["Energy_class"] = df["Description"].apply(lambda description: get_energy_class_from_desc(description) if pd.notna(description) else pd.NA)
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", index=False)
 
@@ -195,7 +219,9 @@ def athome_lu_enrichment(ds):
     df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Terrace_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
     df.loc[df["Has_garden"].isna(), "Has_garden"] = df.loc[df["Has_garden"].isna(), "Garden_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
     df.loc[df["Exposition"].isna(), "Exposition"] = df["Description"].apply(lambda description: get_exposition_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Energy_class"].isna(), "Energy_class"] = df["Description"].apply(lambda description: get_energy_class_from_desc(description) if pd.notna(description) else pd.NA)
+
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv", index=False)
 
-# immotop_lu_enrichment("2025-03-02")
+# immotop_lu_enrichment("2025-03-05")
 # athome_lu_enrichment("2025-03-02")

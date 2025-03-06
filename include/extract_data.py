@@ -303,7 +303,13 @@ def extract_immotop_lu_data(ds):
         if s.find("div", "in-errorPage__bg in-errorPage__bg--generic in-errorPage__container") != None:
             proceed = False
         else:
-            properties = s.find("ul", "nd-list in-searchLayoutList ls-results").find_all("li", "nd-list__item in-searchLayoutListItem")
+            properties_ul = s.find("ul", "nd-list in-searchLayoutList ls-results")
+            
+            #Specific case : if there is a single accomodation on the page
+            if properties_ul is None:
+                properties_ul = s.find("ul", "nd-list in-searchLayoutList ls-results ls-results--single")
+
+            properties = properties_ul.find_all("li", "nd-list__item in-searchLayoutListItem")
 
             for i in range(len(properties)):
                 item = {}
