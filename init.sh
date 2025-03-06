@@ -67,62 +67,9 @@ EOF
     # airflow scheduler &
 }
 
-get_linux_distribution()
-{
-    if grep -q "Ubuntu" /etc/os-release; then
-        echo "ubuntu"
-    elif grep -q "Debian" /etc/os-release; then
-        echo "debian"
-    elif grep -q "CentOS" /etc/os-release; then
-        echo "centOS"
-    elif grep -q "Fedora" /etc/os-release; then
-        echo "fedora"
-    elif grep -q "Red Hat" /etc/os-release; then
-        echo "red hat"
-    else
-        echo "Other"
-    fi
-}
-
-#Install docker for selenium hub
-docker_init()
-{
-    #Checking if docker is already installed
-    if command -v docker &> /dev/null; then
-        echo "Docker is already installed"
-    else
-        LINUX_DISTRIBUTION=$(get_linux_distribution)
-        case $LINUX_DISTRIBUTION in
-            "ubuntu" | "debian")
-                # Add Docker's official GPG key:
-                sudo apt-get update
-                sudo apt-get install ca-certificates curl
-                sudo install -m 0755 -d /etc/apt/keyrings
-                sudo curl -fsSL https://download.docker.com/linux/$LINUX_DISTRIBUTION/gpg -o /etc/apt/keyrings/docker.asc
-                sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-                # Add the repository to Apt sources:
-                echo \
-                    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$LINUX_DISTRIBUTION \
-                    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-                    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                sudo apt-get update
-
-                 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-                echo "Docker has been successfully installed"
-                ;;
-            *)
-                echo "Distribution not supported"
-                ;;
-        esac
-    fi
-}
-
 BASH_DIR=$(dirname $(readlink -f $0))
 
 airflow_init
-docker_init
 
 #Move folders in airflow directory
 
