@@ -62,3 +62,17 @@ In this phase, the raw data extracted from the websites is cleaned and transform
 - Dropping irrelevant rows and columns
 
 The transformed data is saved as CSV files in the _cleaned_ folder.
+
+## 3) Enrichment
+
+__DAG tasks concerned :__ _athome_lu_data_enrichment_, _immotop_lu_data_enrichment_
+
+In this phase, additional features are extracted from the accomodation descriptions using regex in order to :
+1) Fill gaps where data is missing from one website's raw data but available on another
+2) Increase dataset completeness and make the most of the collected data
+
+The extracted features include, but are not limited to:
+
+- Garden, balcony and terrace surface area
+- Has_lift, Is_flat, Has_cellar, Has_balcony, Has_garden, Has_terrace
+
