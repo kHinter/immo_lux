@@ -16,12 +16,22 @@ monthly_charges_reg = re.compile("((?<=Monthly charges: )€?\d+(?:\.?,?\d+)?)|(
 balcony_surface_reg = re.compile(
     "(?<=balcon de )\d+(?:\.?,?\d+)? ?m(?:2|²)|(?<=balcon de \+/- )\d+(?:\.?,?\d+)? ?m(?:2|²)|(?<=balcon de ±) *\d+(?:\.?,?\d+)? *m *(?:2|²)"
     "|(?<=balcony of) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=balcony of ±) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=balcony of \+/-) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)"
-    "|\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm) *(?=balcony)|(?<=balcony) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=balcony) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)", re.IGNORECASE)
+    "|\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm) *(?=balcony)|(?<=balcony) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=balcony) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)"
+    , re.IGNORECASE
+)
 
 garden_surface_reg = re.compile(
     "\d+(?:\.?,?\d+)? *(?=m2 private garden)|(?<=garden of \+/-) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=garden of) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)"
     "|(?<=garden) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm) *(?=garden)|(?<=jardin de )\d+(?:\.?,?\d+)? ?m(?:2|²)"
-    "|(?<=jardin de \+/- )\d+(?:\.?,?\d+)? *m(?:2|²)|(?<=jardin) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *m *(?:2|²)", re.IGNORECASE
+    "|(?<=jardin de \+/- )\d+(?:\.?,?\d+)? *m(?:2|²)|(?<=jardin) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *m *(?:2|²)"
+    , re.IGNORECASE
+)
+
+terrace_surface_reg = re.compile(
+    "\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm) *(?=terrace)|(?<=terrace of )\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=terrace of \+/-) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)"
+    "|(?<=terrace of ±) *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=terrace) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *(?:m *(?:2|²)|sqm)|(?<=terrasse de )\d+(?:\.?,?\d+)? ?m(?:2|²)"
+    "|(?<=terrasse de \+/- )\d+(?:\.?,?\d+)? *m(?:2|²)|(?<=terrasse de ±)\d+(?:\.?,?\d+)? *m(?:2|²)|(?<=terrasse) *\((?:\+/-)? *\d+(?:\.?,?\d+)? *m *(?:2|²)"
+    , re.IGNORECASE
 )
 
 exposition_reg = re.compile(
@@ -46,12 +56,9 @@ energy_class_reg = re.compile(
     , re.IGNORECASE
 )
 
-#Terrace examples:
-#+/- 25 m2 terrace
-#terrace of
-
 has_cellar_reg = re.compile("(no +cellar|pas +de +cave)|(cellar|cave)", re.IGNORECASE)
 has_garden_reg = re.compile("(no +garden)|(garden|jardin)", re.IGNORECASE)
+has_terrace_reg = re.compile("(no +terrace)|(terrace|terrasse)", re.IGNORECASE)
 is_flat_reg = re.compile("flat |shared (?:accommodation|apartment)|colocation|maison partagée", re.IGNORECASE)
 has_balcony_reg = re.compile("balcony|balcon", re.IGNORECASE)
 is_furnished_reg = re.compile("(non-? *meublé|unfurnished)|(meublé|furnished(?!.lu))", re.IGNORECASE)
@@ -59,15 +66,15 @@ has_lift_reg = re.compile("(without +lift|without +elevator|sans +ascenseur)|((?
 no_agency_fees_reg = re.compile("No agency fees", re.IGNORECASE)
 
 ###MODEL
-model = OllamaLLM(model="llama3.2:3b")
+# model = OllamaLLM(model="llama3.2:3b")
 
-###PROMPTS
-deposit_prompt_template = """
-    Based on the following property description, determine me (if any) the amount of agency fees. If there is no agency fees, just answer "No fees", otherwise give me directly the amount of the agency fees without adding additional text. :
+# ###PROMPTS
+# deposit_prompt_template = """
+#     Based on the following property description, determine me (if any) the amount of agency fees. If there is no agency fees, just answer "No fees", otherwise give me directly the amount of the agency fees without adding additional text. :
 
-    {description}
-"""
-deposit_chain = ChatPromptTemplate.from_template(deposit_prompt_template) | model
+#     {description}
+# """
+# deposit_chain = ChatPromptTemplate.from_template(deposit_prompt_template) | model
 
 def get_monthly_charge_from_desc(description):
     matches = monthly_charges_reg.findall(description)
@@ -78,7 +85,7 @@ def get_monthly_charge_from_desc(description):
 def get_has_cellar_from_desc(description):
     match = has_cellar_reg.search(description)
     if match:
-        if match.group(1) != None:
+        if match.group(1) is not None:
             return "Non"
         elif match.group(2) != "":
             return "Oui"
@@ -87,7 +94,16 @@ def get_has_cellar_from_desc(description):
 def get_has_garden_from_desc(description):
     match = has_garden_reg.search(description)
     if match:
-        if match.group(1) != None:
+        if match.group(1) is not None:
+            return "Non"
+        elif match.group(2) != "":
+            return "Oui"
+    return None
+
+def get_has_terrace_from_desc(description):
+    match = has_terrace_reg.search(description)
+    if match:
+        if match.group(1) is not None:
             return "Non"
         elif match.group(2) != "":
             return "Oui"
@@ -135,6 +151,12 @@ def get_garden_surface_from_desc(description):
         return match.group(0).strip().replace("m2", "").translate(surface_trans_table).replace(" 2", "").replace(",", ".")
     return None
 
+def get_terrace_surface_from_desc(description):
+    match = terrace_surface_reg.search(description)
+    if match:
+        return match.group(0).strip().replace("m2", "").translate(surface_trans_table).replace(" 2", "").replace(",", ".")
+    return None
+
 def get_agency_fees_from_desc(description):
     no_agency_fees_match = no_agency_fees_reg.search(description)
     if no_agency_fees_match:
@@ -170,27 +192,46 @@ def get_energy_class_from_desc(description):
         return match.group(0)
     return None
 
+def enrich_surface_related_columns(df):
+    if "Balcony_surface" not in df.columns:
+        df["Balcony_surface"] = pd.NA
+    if "Garden_surface" not in df.columns:
+        df["Garden_surface"] = pd.NA
+    if "Terrace_surface" not in df.columns:
+        df["Terrace_surface"] = pd.NA
+
+    #Surface columns
+    df.loc[df["Balcony_surface"].isna(), "Balcony_surface"] = df.loc[df["Balcony_surface"].isna(), "Description"].apply(lambda description: get_balcony_surface_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Garden_surface"].isna(), "Garden_surface"] = df.loc[df["Garden_surface"].isna(), "Description"].apply(lambda description: get_garden_surface_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Terrace_surface"].isna(), "Terrace_surface"] = df.loc[df["Terrace_surface"].isna(), "Description"].apply(lambda description: get_terrace_surface_from_desc(description) if pd.notna(description) else pd.NA)
+
+    #Fill the Has_garden, Has_terrace, Has_balcony columns if their surface is not NA
+    df.loc[df["Has_balcony"].isna(), "Has_balcony"] = df.loc[df["Has_balcony"].isna(), "Balcony_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
+    df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Terrace_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
+    df.loc[df["Has_garden"].isna(), "Has_garden"] = df.loc[df["Has_garden"].isna(), "Garden_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
+
+    return df
+
 def immotop_lu_enrichment(ds):
     df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv")
 
     #Determine other attributes based on description
     df["Monthly_charges"] = df["Description"].apply(lambda description: get_monthly_charge_from_desc(description) if pd.notna(description) else pd.NA)
-
-    #Surface columns
-    df["Balcony_surface"] = df["Description"].apply(lambda description: get_balcony_surface_from_desc(description) if pd.notna(description) else pd.NA)
-    df["Garden_surface"] = df["Description"].apply(lambda description: get_garden_surface_from_desc(description) if pd.notna(description) else pd.NA)
-
-    df["Has_cellar"] = df["Description"].apply(lambda description: get_has_cellar_from_desc(description) if pd.notna(description) else pd.NA)
-    df["Has_garden"] = df["Description"].apply(lambda description: get_has_garden_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Has_balcony"].isna(), "Has_balcony"] = df.loc[df["Has_balcony"].isna(), "Description"].apply(lambda description: get_has_balcony_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Has_lift"].isna(), "Has_lift"] = df.loc[df["Has_lift"].isna(), "Description"].apply(lambda description: get_has_lift_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Is_furnished"].isna(), "Is_furnished"] = df.loc[df["Is_furnished"].isna(), "Description"].apply(lambda description: get_is_furnished_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Agency_fees"].isna(), "Agency_fees"] = df.loc[df["Agency_fees"].isna(), "Description"].apply(lambda description: get_agency_fees_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Is_flat"].isna(), "Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
- 
+    df["Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
     df["Exposition"] = df["Description"].apply(lambda description: get_exposition_from_desc(description) if pd.notna(description) else pd.NA)
     df["Insulation_class"] = df["Description"].apply(lambda description: get_insulation_class_from_desc(description) if pd.notna(description) else pd.NA)
     df["Energy_class"] = df["Description"].apply(lambda description: get_energy_class_from_desc(description) if pd.notna(description) else pd.NA)
+    df["Has_cellar"] = df["Description"].apply(lambda description: get_has_cellar_from_desc(description) if pd.notna(description) else pd.NA)
+    df["Has_garden"] = df["Description"].apply(lambda description: get_has_garden_from_desc(description) if pd.notna(description) else pd.NA)
+
+    df = enrich_surface_related_columns(df)
+
+    df.loc[df["Has_balcony"].isna(), "Has_balcony"] = df.loc[df["Has_balcony"].isna(), "Description"].apply(lambda description: get_has_balcony_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Description"].apply(lambda description: get_has_terrace_from_desc(description) if pd.notna(description) else pd.NA)
+
+    df.loc[df["Has_lift"].isna(), "Has_lift"] = df.loc[df["Has_lift"].isna(), "Description"].apply(lambda description: get_has_lift_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Is_furnished"].isna(), "Is_furnished"] = df.loc[df["Is_furnished"].isna(), "Description"].apply(lambda description: get_is_furnished_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Agency_fees"].isna(), "Agency_fees"] = df.loc[df["Agency_fees"].isna(), "Description"].apply(lambda description: get_agency_fees_from_desc(description) if pd.notna(description) else pd.NA)
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", index=False)
 
@@ -207,19 +248,19 @@ def athome_lu_enrichment(ds):
 
     #Determine other attributes based on description
     df["Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
-    df["Is_furnished"] = df["Description"].apply(lambda description: get_is_furnished_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Has_lift"].isna(), "Has_lift"] = df.loc[df["Has_lift"].isna(), "Description"].apply(lambda description: get_has_lift_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Has_balcony"].isna(), "Has_balcony"] = df.loc[df["Has_balcony"].isna(), "Description"].apply(lambda description: get_has_balcony_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Balcony_surface"].isna(), "Balcony_surface"] = df.loc[df["Balcony_surface"].isna(), "Description"].apply(lambda description: get_balcony_surface_from_desc(description) if pd.notna(description) else pd.NA)
-    df.loc[df["Garden_surface"].isna(), "Garden_surface"] = df.loc[df["Garden_surface"].isna(), "Description"].apply(lambda description: get_garden_surface_from_desc(description) if pd.notna(description) else pd.NA)
-    #TODO complete with terrace_surface
 
-    #Fill the Has_garden, Has_terrace, Has_balcony columns if their surface is not NA
-    df.loc[df["Has_balcony"].isna(), "Has_balcony"] = df.loc[df["Has_balcony"].isna(), "Balcony_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
-    df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Terrace_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
-    df.loc[df["Has_garden"].isna(), "Has_garden"] = df.loc[df["Has_garden"].isna(), "Garden_surface"].apply(lambda surface: "Oui" if pd.notna(surface) else pd.NA)
     df.loc[df["Exposition"].isna(), "Exposition"] = df["Description"].apply(lambda description: get_exposition_from_desc(description) if pd.notna(description) else pd.NA)
     df.loc[df["Energy_class"].isna(), "Energy_class"] = df["Description"].apply(lambda description: get_energy_class_from_desc(description) if pd.notna(description) else pd.NA)
+
+    df.loc[df["Is_furnished"].isna(), "Is_furnished"] = df.loc[df["Is_furnished"].isna(), "Description"].apply(lambda description: get_is_furnished_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Has_lift"].isna(), "Has_lift"] = df.loc[df["Has_lift"].isna(), "Description"].apply(lambda description: get_has_lift_from_desc(description) if pd.notna(description) else pd.NA)
+
+    df = enrich_surface_related_columns(df)
+
+    df.loc[df["Has_balcony"].isna(), "Has_balcony"] = df.loc[df["Has_balcony"].isna(), "Description"].apply(lambda description: get_has_balcony_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Has_garden"].isna(), "Has_garden"] = df.loc[df["Has_garden"].isna(), "Description"].apply(lambda description: get_has_garden_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Has_cellar"].isna(), "Has_cellar"] = df.loc[df["Has_cellar"].isna(), "Description"].apply(lambda description: get_has_cellar_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Description"].apply(lambda description: get_has_terrace_from_desc(description) if pd.notna(description) else pd.NA)
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv", index=False)
 
