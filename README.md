@@ -6,7 +6,7 @@ Data engineering project featuring a data pipeline orchestrated by Apache Airflo
 
 ## Requirement
 
-An Ubuntu or Debian Linux machine with at least 8 GB of RAM is required.
+A Linux machine with at least 4 GB of RAM is required, although 8 GB is recommended.
 
 ## Installation & Deployment
 
@@ -25,23 +25,40 @@ airflow scheduler &
 
 4) Once you reach the sign-in interface, log in using the admin credentials. Both the username and password are set to `airflow`.
 
-5) Now, in the DAG list, you should see a DAG called **immo_dag**
+5) Once connected, let's setup the following airflow variables by navigating to **Admin** > **Variables** :
 
-6) Before running the DAG, navigate to the repository folder and type `docker compose up -d` in the terminal to start the Selenium Grid server
+![image](https://github.com/user-attachments/assets/a2fc4948-8ff6-451b-b342-95f8d11ba99c)
+
+To get the opencage API key, go to https://opencagedata.com/, create an account or sign-in, then you will be able to generate an API key from the dashbaord.
+
+7) Now, in the DAG list, you should see a DAG called **immo_dag**
 
 # Data Pipeline
 
-![image](https://github.com/user-attachments/assets/d903cc4e-dcae-429c-8148-5146a1e5c2c0)
+![image](https://github.com/user-attachments/assets/1619b7d2-63c1-4071-9850-f23b25517a8f)
 
 _The Airflow DAG structure_
 
 ## 1) Extraction
 
-__DAG tasks and grouptasks concerned :__ _extract_data_from_athome_lu_, _extract_data_from_immotop_lu_
+__DAG tasks concerned :__ _extract_data_from_athome_lu_, _extract_data_from_immotop_lu_
 
 I use BeautifulSoup to scrape content from Athome.lu and Immotop.lu. For Athome.lu, I pre-clean most of the data during retrieval, as I can manage it on a case-by-case basis. In contrast, for Immotop.lu, I cannot pre-clean the data because the features I need to extract are not known in advance.
 
-Since Athome.lu loads accommodation images dynamically, I use Selenium to retrieve image URLs. This makes the process significantly slower compared to Immotop.lu, which relies solely on BeautifulSoup.
-To speed up scraping, I use a Selenium Grid server with two nodes, enabling concurrent execution of two DAG tasks (_scraping_part1_ and _scraping_part2_), each processing half of the website’s pages.
-
 To track data transformations throughout the pipeline, each task's output is saved as a CSV file in dedicated folders. For extraction-related tasks, the CSV files are stored in the _raw_ folder
+
+## 2) Transformation
+
+__DAG tasks concerned :__ _transform_data_from_athome_lu_, _transform_data_from_immotop_lu_
+
+In this phase, the raw data extracted from the websites is cleaned and transformed into a structured format. This includes:
+
+- Parsing numerical values
+- Removing duplicate listings based on accommodation links
+- Standardizing districts names and expositions
+- Extracting additional features (e.g., garages, street names, and street numbers)
+- Normalizing text formats (e.g : removing spaces and irrelevant substrings)
+- Converting data types for consistency
+- Dropping irrelevant rows and columns
+
+The transformed data is saved as CSV files in the _cleaned_ folder.
