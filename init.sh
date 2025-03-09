@@ -5,11 +5,11 @@ airflow_init()
     sudo apt update
     sudo apt install python3-pip
     sudo apt install sqlite3
-    sudo apt install python3-venv
+    # sudo apt install python3-venv
 
     cd $BASH_DIR/..
 
-    #Verify if the virtual environnment is already created
+    # Verify if the virtual environnment is already created
     if [[ ! -f ./venv/bin/activate ]]; then
         echo "Creation of a new virtual environment"
         python3 -m venv venv
@@ -17,6 +17,7 @@ airflow_init()
         echo "Virtual environment already exists"
     fi
 
+    #Activate the venv
     source venv/bin/activate
     sudo apt-get install libpq-dev
 
@@ -25,17 +26,22 @@ airflow_init()
     echo "AIRFLOW_HOME environment variable set to : {$AIRFLOW_HOME}"
 
     #Install airflow working with postgresql database
+
     pip install "apache-airflow[postgres]==2.5.0" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.5.0/constraints-3.7.txt"
+
+    #use pipenv to manage dependencies conflicts
+    pip install pipenv
     
     #Required python libraries
-    pip install selenium langchain_ollama ollama
-    pip install pandas
-    pip install bs4
-    pip install opencv-python
-    pip install matplotlib
-    pip install Unidecode
-    pip install openpyxl
-    pip install torch torchvision timm
+    pipenv install langchain_ollama ollama
+    pipenv install pandas
+    pipenv install bs4
+    pipenv install opencv-python
+    pipenv install matplotlib
+    pipenv install Unidecode
+    pipenv install openpyxl
+    pipenv install torch torchvision timm
+    pipenv install airflow-provider-great-expectations
     
     airflow db init
     sudo apt-get install postgresql postgresql-contrib
