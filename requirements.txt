@@ -1,0 +1,13 @@
+langchain_ollama
+ollama
+pandas
+bs4
+opencv-python
+matplotlib
+Unidecode
+psycopg2
+openpyxl
+torch 
+torchvision
+timm
+airflow-provider-great-expectations

@@ -19,15 +19,9 @@ street_abbreviations = {
     "av" : "avenue"
 }
 
-#Official dataset and SoT of the Luxembourgish government for street names
-df_streets_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="RUE")
 streets_validity = {}
-
-#Official dataset and SoT of the Luxembourgish government for localities and city
-df_localities_and_cities_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="TR.DiCaCoLo.RuCp")
 #To map a locality to its corresponding city
 localities_city_mapping = {}
-
 
 def get_garages_number(garage):
     garages_number = [int(s) for s in garage.split() if s.isdigit()]
@@ -65,7 +59,7 @@ def get_street_name_and_number(row):
     return row
 
 #Will be used later during duplicate treatment to eliminate potential candidates for image similarity comparison
-def get_street_name_validity(street_name):
+def get_street_name_validity(street_name, df_streets_sot):
     if street_name in streets_validity:
         return streets_validity[street_name]
     else:
@@ -76,7 +70,7 @@ def get_street_name_validity(street_name):
             streets_validity[street_name] = "Oui"
             return "Oui"
 
-def get_official_city(city):
+def get_official_city(city, df_localities_and_cities_sot):
     if city in localities_city_mapping:
         return localities_city_mapping[city]
     else:
@@ -155,9 +149,15 @@ def immotop_lu_data_cleaning(ds):
     #Determine the street name and/or street number
     df = df.apply(get_street_name_and_number, axis=1)
 
-    df["City"] = df["City"].apply(lambda city: get_official_city(city))
+    #Official dataset and SoT of the Luxembourgish government for localities and city
+    df_localities_and_cities_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="TR.DiCaCoLo.RuCp")
 
-    df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
+    df["City"] = df["City"].apply(lambda city: get_official_city(city, df_localities_and_cities_sot))
+
+    #Official dataset and SoT of the Luxembourgish government for street names
+    df_streets_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="RUE")
+
+    df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name, df_streets_sot) if pd.notna(street_name) else pd.NA)
     df["Agency_fees"] = df["Agency_fees"].apply(lambda fees: fees.replace("Not specified", "").translate(translate_table_price) if pd.notnull(fees) else fees)
 
     df["Has_lift"] = df["Has_lift"].map({"Yes" : "Oui", "No" : "Non"})
@@ -229,11 +229,15 @@ def athome_lu_data_cleaning(ds):
     #Determine the street name and/or street number
     df = df.apply(get_street_name_and_number, axis=1)
 
-    df["City"] = df["City"].apply(lambda city: get_official_city(city))
+    #Official dataset and SoT of the Luxembourgish government for localities and city
+    df_localities_and_cities_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="TR.DiCaCoLo.RuCp")
 
-    df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name) if pd.notna(street_name) else pd.NA)
+    df["City"] = df["City"].apply(lambda city: get_official_city(city, df_localities_and_cities_sot))
 
-    df["City"] = df["City"].apply(lambda city: get_official_city(city))
+    #Official dataset and SoT of the Luxembourgish government for street names
+    df_streets_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="RUE")
+
+    df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name, df_streets_sot) if pd.notna(street_name) else pd.NA)
 
     df["District"] = df["District"].replace({
         "Neudorf" : "Neudorf-Weimershof",

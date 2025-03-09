@@ -4,19 +4,14 @@ import pandas as pd
 import re
 from airflow.models import Variable
 
-#ML packages
-import torch
-import torchvision.models as models
-import torchvision.transforms as transforms
-import torch.nn.functional as F
-import timm
-
 #Custom modules
 from . import utils
 
 # from utils import fetch_url_with_retries, get_image_from_url
 
 def get_embedding(image, model, transform):
+    import torch
+
     #Add a batch dimension
     image = transform(image).unsqueeze(0)
     with torch.no_grad():
@@ -25,6 +20,10 @@ def get_embedding(image, model, transform):
     return embedding
 
 def init_dinoV2():
+    import torchvision.transforms as transforms
+    import timm
+    import torch
+
     device = torch.device("cpu")
     model = timm.create_model("vit_small_patch14_dinov2.lvd142m", pretrained=True).to(device)
     model.eval() 
@@ -64,6 +63,8 @@ def calculate_haversine_distance(coord1, coord2):
     return R * c
     
 def merge_all_df_and_treat_duplicates(ds):
+    import torch.nn.functional as F
+    
     #Retrieve all df
     df_athome = pd.read_csv(
         f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv",
