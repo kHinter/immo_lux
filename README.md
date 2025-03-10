@@ -10,28 +10,19 @@ A Linux machine with at least 4 GB of RAM is required, although 8 GB is recommen
 
 ## Installation & Deployment
 
-1) Installation is very simple : just run the **init.sh** Bash script located at the root of the project. 
-There's no need to have Airflow or Python pre-installed, as the script is designed for quick deployment on servers.
-By default airflow will be installed in `/home/airflow`.
+1) Installation and deployment is very simple : just run the **init.sh** bash script located at the root of the project. It will install airflowctl, a CLI tool for managing Airflow projects, initializes a new project, and builds and starts an Airflow standalone instance in the background.
+  
+2) Access the Airflow Web UI at http://localhost:8080/ if you're using a local machine. If installed on a server, replace `localhost` with your server's IP address or domain name.
 
-2) Once fully executed, you can now launch the webserver and the scheduler by typing in the terminal the following commands :
+3) Once you reach the sign-in interface, log in using the admin credentials. Both the username and password are set to `airflow`.
 
-```bash
-airflow webserver &
-airflow scheduler &
-```
-
-3) Access the Airflow Web UI at http://localhost:8080/ if you're using a local machine. If installed on a server, replace `localhost` with your server's IP address or domain name.
-
-4) Once you reach the sign-in interface, log in using the admin credentials. Both the username and password are set to `airflow`.
-
-5) Once connected, let's setup the following airflow variables by navigating to **Admin** > **Variables** :
+4) Once connected, let's setup the following airflow variables by navigating to **Admin** > **Variables** :
 
 ![image](https://github.com/user-attachments/assets/a2fc4948-8ff6-451b-b342-95f8d11ba99c)
 
 To get the opencage API key, go to https://opencagedata.com/, create an account or sign-in, then you will be able to generate an API key from the dashbaord.
 
-7) Now, in the DAG list, you should see a DAG called **immo_dag**
+5) Now, in the DAG list, you should see a DAG called **immo_dag**
 
 # Data Pipeline
 
