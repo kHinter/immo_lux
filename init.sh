@@ -21,12 +21,17 @@ airflow_init()
 
     #Activate the venv
     source venv/bin/activate
-    
+
     pip install airflowctl
 
-    sed -i 's#/home#$BASH_DIR#g' settings.yaml
+    cd $BASH_DIR
 
     airflowctl init .
+
+    echo "" >> .env
+    echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@localhost:5432/airflow" >> .env
+    echo "AIRFLOW__CORE__EXECUTOR=LocalExecutor" >> .env
+
     airflowctl build
     airflowctl start --background
 }
