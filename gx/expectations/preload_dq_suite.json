@@ -1,0 +1,24 @@
+{
+    "data_asset_type" : null,
+    "expectation_suite_name" : "preload_dq_suite",
+    "expectations" : [
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "price"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "surface"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "link"
+            }
+        }
+    ]
+}

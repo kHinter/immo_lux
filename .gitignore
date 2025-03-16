@@ -5,8 +5,9 @@ airflow-webserver.pid
 webserver_config.py
 logs
 standalone_admin_password.txt
+background_logs_info.txt
 .DS_Store
-__pycache__/
+include/__pycache__/
 .venv
 .env
 settings.yaml
@@ -18,3 +19,4 @@ dags/data/deduplicated/*
 dags/data/tmp/*
 dags/reports/*
 __pycache__/
+gx/expectations/.ge_store_backend_id

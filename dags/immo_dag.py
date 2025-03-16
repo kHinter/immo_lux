@@ -3,6 +3,9 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
 from airflow.utils.dates import days_ago
+from great_expectations_provider.operators.great_expectations import (
+    GreatExpectationsOperator
+)
 
 import sys
 import os
@@ -16,6 +19,7 @@ from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_clean
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
 from include.reports import generate_dq_report
 from include.duplicates_treatment import merge_all_df_and_treat_duplicates
+from include.utils import merge_dataframes, get_merged_dataframe
 
 if Variable.get("immo_lux_data_folder", default_var=None) == None:
     airflow_home = os.environ["AIRFLOW_HOME"]
@@ -69,6 +73,11 @@ with DAG(
         python_callable=athome_lu_enrichment
     )
 
+    merge_df = PythonOperator(
+        task_id = "merge_dataframes",
+        python_callable=merge_dataframes
+    )
+
     treat_duplicates = PythonOperator(
         task_id = "merge_all_df_and_treat_duplicates",
         python_callable=merge_all_df_and_treat_duplicates
@@ -78,12 +87,24 @@ with DAG(
         task_id = "generate_dq_report",
         python_callable=generate_dq_report,
     )
+
+    gx_dq_validation = GreatExpectationsOperator(
+        task_id = "gx_dq_validation",
+        data_context_root_dir="gx",
+        dataframe_to_validate=get_merged_dataframe,
+        execution_engine="PandasExecutionEngine",
+        data_asset_name="merged_data",
+        expectation_suite_name="preload_dq_suite",
+        return_json_dict=True
+    )
     
     extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment
     extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
 
-    athome_lu_data_enrichment >> gen_report
-    immotop_lu_data_enrichment >> gen_report
+    athome_lu_data_enrichment >> merge_df
+    immotop_lu_data_enrichment >> merge_df
 
-    athome_lu_data_enrichment >> treat_duplicates
-    immotop_lu_data_enrichment >> treat_duplicates
+    merge_df >> gx_dq_validation
+
+    gx_dq_validation >> treat_duplicates
+    gx_dq_validation >> gen_report

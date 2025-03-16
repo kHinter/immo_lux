@@ -64,22 +64,6 @@ def calculate_haversine_distance(coord1, coord2):
     
 def merge_all_df_and_treat_duplicates(ds):
     import torch.nn.functional as F
-    
-    #Retrieve all df
-    df_athome = pd.read_csv(
-        f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv",
-        dtype={
-            "Monthly_charges" : "Int64",
-            "Deposit" : "Int64",
-            "Floor_number" : "Int64",
-            "Bedrooms" : "Int64",
-            "Bathroom" : "Int64",
-            "Garages" : "Int64"})
-
-    df_immotop = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv")
-
-    #Merge all df into a single one
-    df = pd.concat([df_athome, df_immotop])
 
     #Introduction of a new column that will be used to identify the duplicates later on
     #1 is the default value (= no other duplicates)
