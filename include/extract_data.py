@@ -1,5 +1,4 @@
 import logging
-import os
 from airflow.models import Variable
 
 #Custom modules
@@ -324,7 +323,7 @@ def extract_immotop_lu_data(ds):
                 page = utils.fetch_url_with_retries(item["Link"], headers=headers)
                 details = BeautifulSoup(page.text, "html.parser")
 
-                title = details.find("h1", "re-title__title")
+                title = details.find("h1", "ld-title__title")
                 #If title is None then the page contains no other data so we skip it
                 if title == None:
                     continue
@@ -346,23 +345,29 @@ def extract_immotop_lu_data(ds):
                     item["District"] = title_parts[title_parts_size - 2].replace("Localité", "")
 
                 #To get the address
-                location_spans = details.find_all("span", "re-blockTitle__location")
+                location_spans = details.find_all("span", "ld-blockTitle__location")
                 if len(location_spans) == 2:
                     item["Address"] = location_spans[1].get_text()
 
                 #Features treatment
-                features = details.find_all("div", "re-featuresItem")
+                features = details.find_all("div", "ld-featuresItem")
                 for feature in features:
-                    feature_title = feature.find("dt", "re-featuresItem__title").get_text()
+                    feature_title = feature.find("dt", "ld-featuresItem__title").get_text()
 
                     if feature_title not in features_blacklist:
-                        item[feature_title] = feature.find("dd", "re-featuresItem__description").get_text()
+                        item[feature_title] = feature.find("dd", "ld-featuresItem__description").get_text()
                 
-                energy_class = details.find("span", "re-mainConsumptions__energyCustomColor")
+                energy_class = details.find("span", "ld-energyMainConsumptions__consumptionColorClass ld-energyRating")
                 if energy_class != None:
                     item["Energy_class"] = energy_class.get_text()
                 else:
                     item["Energy_class"] = None
+
+                insulation_class = details.find("span", "ld-energyMainConsumptions__consumptionColorClass ld-energyThermal")
+                if insulation_class != None:
+                    item["Insulation_class"] = insulation_class.get_text()
+                else:
+                    item["Insulation_class"] = None
 
                 agency_frame = details.find("div", "in-referent in-referent__withPhone")
                 

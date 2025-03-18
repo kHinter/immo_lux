@@ -20,3 +20,4 @@ dags/data/tmp/*
 dags/reports/*
 __pycache__/
 gx/expectations/.ge_store_backend_id
+gx_merged.csv

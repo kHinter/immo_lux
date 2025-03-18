@@ -1,4 +1,3 @@
-from datetime import timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
@@ -9,6 +8,8 @@ from great_expectations_provider.operators.great_expectations import (
 
 import sys
 import os
+from datetime import timedelta
+import pandas as pd
 
 #To find the include folder in order to realize the local imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -19,7 +20,27 @@ from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_clean
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
 from include.reports import generate_dq_report
 from include.duplicates_treatment import merge_all_df_and_treat_duplicates
-from include.utils import merge_dataframes, get_merged_dataframe
+
+def merge_dataframes(ds):
+    from airflow.models import Variable
+
+    #Retrieve all df
+    df_athome = pd.read_csv(
+        f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv",
+        dtype={
+            "Monthly_charges" : "Int64",
+            "Deposit" : "Int64",
+            "Floor_number" : "Int64",
+            "Bedrooms" : "Int64",
+            "Bathroom" : "Int64",
+            "Garages" : "Int64"})
+
+    df_immotop = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv")
+
+    #Merge all df into a single one
+    df = pd.concat([df_athome, df_immotop])
+
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", index=False)
 
 if Variable.get("immo_lux_data_folder", default_var=None) == None:
     airflow_home = os.environ["AIRFLOW_HOME"]
@@ -91,7 +112,8 @@ with DAG(
     gx_dq_validation = GreatExpectationsOperator(
         task_id = "gx_dq_validation",
         data_context_root_dir="gx",
-        dataframe_to_validate=get_merged_dataframe,
+        #Can't use a dynamic path for the dataframe (e.g : merged_2024-12-01.csv) because this Operator is evaluated during DAG parsing
+        dataframe_to_validate=pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv"),
         execution_engine="PandasExecutionEngine",
         data_asset_name="merged_data",
         expectation_suite_name="preload_dq_suite",

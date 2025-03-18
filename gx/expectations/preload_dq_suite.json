@@ -5,19 +5,19 @@
         {
             "expectation_type" : "expect_column_values_to_not_be_null",
             "kwargs" : {
-                "column" : "price"
+                "column" : "Price"
             }
         },
         {
             "expectation_type" : "expect_column_values_to_not_be_null",
             "kwargs" : {
-                "column" : "surface"
+                "column" : "Surface"
             }
         },
         {
             "expectation_type" : "expect_column_values_to_not_be_null",
             "kwargs" : {
-                "column" : "link"
+                "column" : "Link"
             }
         }
     ]
