@@ -1,13 +1,15 @@
 import pandas as pd
 import re
-from langchain_ollama import OllamaLLM
-from langchain_core.prompts import ChatPromptTemplate
+# from langchain_ollama import OllamaLLM
+# from langchain_core.prompts import ChatPromptTemplate
 from airflow.models import Variable
+from . import utils
 
 surface_trans_table = str.maketrans("", "", "sqm²(+/-")
+price_trans_table = str.maketrans("", "", "€" ,)
 
 ##REGEX
-monthly_charges_reg = re.compile("((?<=Monthly charges: )€?\d+(?:\.?,?\d+)?)|((?<=Charges mensuelles: )€?\d+(?:\.?,?\d+)?)|((?<=Charges: )€?\d+(?:\.?,?\d+)?)", re.IGNORECASE)
+monthly_charges_reg = re.compile("(?<=Monthly charges: )€?\d+(?:\.?,?\d+)?|(?<=Charges mensuelles: )€?\d+(?:\.?,?\d+)?", re.IGNORECASE)
 
 # deposit_in_months_reg = re.compile("(?<=Deposit) *: +\d+ +(?=month)", re.IGNORECASE)
 # no_deposit_reg = re.compile("No deposit")
@@ -77,10 +79,10 @@ no_agency_fees_reg = re.compile("No agency fees", re.IGNORECASE)
 # deposit_chain = ChatPromptTemplate.from_template(deposit_prompt_template) | model
 
 def get_monthly_charge_from_desc(description):
-    matches = monthly_charges_reg.findall(description)
-    if len(matches) == 0:
-        return None
-    return next(element.replace("€", "") for element in matches[0] if element != "")
+    match = monthly_charges_reg.search(description)
+    if match:
+        return match.group(0).strip().translate(price_trans_table)
+    return None
 
 def get_has_cellar_from_desc(description):
     match = has_cellar_reg.search(description)
@@ -233,6 +235,7 @@ def immotop_lu_enrichment(ds):
     df.loc[df["Is_furnished"].isna(), "Is_furnished"] = df.loc[df["Is_furnished"].isna(), "Description"].apply(lambda description: get_is_furnished_from_desc(description) if pd.notna(description) else pd.NA)
     df.loc[df["Agency_fees"].isna(), "Agency_fees"] = df.loc[df["Agency_fees"].isna(), "Description"].apply(lambda description: get_agency_fees_from_desc(description) if pd.notna(description) else pd.NA)
 
+    utils.create_data_related_folder_if_not_exists("enriched")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", index=False)
 
 def athome_lu_enrichment(ds):
@@ -262,6 +265,7 @@ def athome_lu_enrichment(ds):
     df.loc[df["Has_cellar"].isna(), "Has_cellar"] = df.loc[df["Has_cellar"].isna(), "Description"].apply(lambda description: get_has_cellar_from_desc(description) if pd.notna(description) else pd.NA)
     df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Description"].apply(lambda description: get_has_terrace_from_desc(description) if pd.notna(description) else pd.NA)
 
+    utils.create_data_related_folder_if_not_exists("enriched")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv", index=False)
 
 # immotop_lu_enrichment("2025-03-05")

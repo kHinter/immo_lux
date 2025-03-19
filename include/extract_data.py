@@ -1,5 +1,6 @@
 import logging
 from airflow.models import Variable
+from . import utils
 
 #Custom modules
 from . import utils
@@ -174,7 +175,7 @@ def extract_athome_data(ds):
 
                     terrace_surface = details.find("div", "characteristics-item characteristic.terraceSurface")
                     if terrace_surface != None:
-                        item["Terrace_surface"] = terrace_surface.find("span", "characteristics-item-value").get_text().replace("m²", "").replace(",", ".").strip()
+                        item["Terrace_surface"] = terrace_surface.find("span", "characteristics-item-value").get_text().replace("m", "").replace("²", "").replace(",", ".").strip()
                     else:
                         item["Terrace_surface"] = None
 
@@ -249,7 +250,6 @@ def extract_athome_data(ds):
                             match = img_suffix_reg.search(anchor.get("href"))
                             if match:
                                 image_url = "https://i1.static.athome.eu/images/annonces2/image_" + match.group()
-                                print(image_url)
                                 item["Photos"] += image_url + " "
                             else:
                                 logging.warning("Image URL not found in the anchor tag !")
@@ -270,6 +270,8 @@ def extract_athome_data(ds):
     df = pd.DataFrame(accomodations)
     df["Snapshot_day"] = ds
     df["Website"] = "athome"
+
+    utils.create_data_related_folder_if_not_exists("raw")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}.csv", index=False)
 
 def extract_immotop_lu_data(ds):
@@ -401,6 +403,8 @@ def extract_immotop_lu_data(ds):
     df = pd.DataFrame(accomodations)
     df["Snapshot_day"] = ds
     df["Website"] = "immotop.lu"
+
+    utils.create_data_related_folder_if_not_exists("raw")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/immotop_lu_{ds}.csv", index=False)
 
     logging.info("Scraping of immotop.lu is successfully finished !")

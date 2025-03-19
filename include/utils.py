@@ -1,5 +1,4 @@
 import requests
-import pandas as pd
 
 def fetch_url_with_retries(url, retries=5, delay=5, headers=None):
     import time
@@ -25,3 +24,10 @@ def get_image_from_url(url):
         img = Image.open(BytesIO(response.content)).convert("RGB")  # Ouvrir l'image à partir du flux binaire
         return img
     return None
+
+def create_data_related_folder_if_not_exists(folder_name):
+    import os
+    from airflow.models import Variable
+
+    if not os.path.exists(f"{Variable.get('immo_lux_data_folder')}/{folder_name}"):
+        os.makedirs(f"{Variable.get('immo_lux_data_folder')}/{folder_name}")

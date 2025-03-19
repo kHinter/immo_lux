@@ -1,8 +1,10 @@
 import pandas as pd
 import re
 import logging
+import os
 from unidecode import unidecode
 from airflow.models import Variable
+from . import utils
 
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -85,25 +87,21 @@ def get_official_city(city, df_localities_and_cities_sot):
 
         return official_city
 
-def clean_deposit(df):
-    for i in range (len(df)):
-        try:
-            if df.loc[i, "Deposit"] == "Not indicated":
-                if df.loc[i, "Rental guarantee"] != "Not specified" and pd.notna(df.loc[i, "Rental guarantee"]):
-                    df.loc[i, "Deposit"] = df.loc[i, "Rental guarantee"].translate(translate_table_price)
-                elif pd.notna(df.loc[i, "Description"]):
-                    matches = deposit_amount_reg.findall(df.loc[i, "Description"])
-                    #No deposit reference found in the accomodation description
-                    if len(matches) == 0:
-                        df.loc[i, "Deposit"] = pd.NA
-                    else:
-                        df.loc[i, "Deposit"] = next(element.replace("€", "") for element in matches[0] if element != "")
-                else:
-                    df.loc[i, "Deposit"] = pd.NA
+def get_deposit(row):
+    if row["Deposit"] == "Not indicated":
+        if pd.notna(row["Rental guarantee"]) and row["Rental guarantee"] != "Not specified":
+            return row["Rental guarantee"].translate(translate_table_price)
+        elif pd.notna(row["Description"]):
+            matches = deposit_amount_reg.findall(row["Description"])
+            #No deposit reference found in the accomodation description
+            if len(matches) == 0:
+                return pd.NA
             else:
-                df.loc[i, "Deposit"] = df.loc[i, "Deposit"].translate(translate_table_price)
-        except KeyError:
-            pass
+                return next(element.replace("€", "") for element in matches[0] if element != "")
+        else:
+            return pd.NA
+    else:
+        return row["Deposit"].translate(translate_table_price)
 
 def get_heating_athome(row):
     if row["Has_gas_heating"] == "Oui":
@@ -115,7 +113,10 @@ def get_district(district):
     district_lower = district.lower()
     district_blacklist = ("new", "excellent condition", "germany", "luxemburg")
 
-    if district_lower.startswith(("rue ", "route ")) or district_lower.endswith("floor") or district_lower in district_blacklist:
+    if (district_lower.startswith(("rue ", "route ")) 
+        or district_lower.endswith("floor") 
+        or district_lower in district_blacklist
+        or "m²" in district_lower):
         return pd.NA
     else:
         return district.replace("Localité", "")
@@ -172,7 +173,7 @@ def immotop_lu_data_cleaning(ds):
 
     df["Bathroom"] = df["Bathroom"].apply(lambda bathroom: 4 if pd.notna(bathroom) and bathroom == "3+" else bathroom)
 
-    clean_deposit(df)
+    df["Deposit"] = df.apply(get_deposit, axis=1)
 
     df["Garages"] = df["Garages"].apply(lambda garage: get_garages_number(garage) if pd.notna(garage) else garage)
     df["Floor_number"] = df["Floor_number"].apply(lambda floor_number: get_floor_number(floor_number) if pd.notna(floor_number) else floor_number)
@@ -203,6 +204,7 @@ def immotop_lu_data_cleaning(ds):
 
     df.drop(columns=["Address"], inplace=True)
 
+    utils.create_data_related_folder_if_not_exists("cleaned")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv", index=False)
 
 def athome_lu_data_cleaning(ds):
@@ -270,6 +272,7 @@ def athome_lu_data_cleaning(ds):
 
     df.drop(columns=["Address"], inplace=True)
 
+    utils.create_data_related_folder_if_not_exists("cleaned")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv", index=False)
 
 # athome_lu_data_cleaning("2025-02-05")
