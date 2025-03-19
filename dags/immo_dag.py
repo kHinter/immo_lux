@@ -42,9 +42,16 @@ def merge_dataframes(ds):
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", index=False)
 
-if Variable.get("immo_lux_data_folder", default_var=None) == None:
+if Variable.get("immo_lux_data_folder", default_var=None) is None:
     airflow_home = os.environ["AIRFLOW_HOME"]
     Variable.set("immo_lux_data_folder", f"{airflow_home}/dags/data")
+
+#Creation of the csv file consummed by the GreatExpectationsOperator
+if not os.path.exists(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv"):
+    with open(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", "w") as f:
+        #Write a dummy header just to avoid that the DAG parsing fails when the GreatExpectationsOperator is evaluated
+        f.write("column1,column2")
+        f.close()
 
 default_args = {
     "owner" : "airflow",

@@ -2,6 +2,7 @@
     "data_asset_type" : null,
     "expectation_suite_name" : "preload_dq_suite",
     "expectations" : [
+        
         {
             "expectation_type" : "expect_column_values_to_not_be_null",
             "kwargs" : {
@@ -19,6 +20,98 @@
             "kwargs" : {
                 "column" : "Link"
             }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Website"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Type"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Photos"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Snapshot_day"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "City"
+            }
+        },
+
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Agency",
+                "type_" : "object"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Agency_fees",
+                "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Balcony_surface",
+                "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Bathroom",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Bedrooms",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "City",
+                "type_" : "object"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Deposit",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Description",
+                "type_" : "object"
+            }
         }
-    ]
+    ],
+    "meta" : {
+        "notes" : {
+            "content" : "This suite defines the data expectations for the merged dataframe."
+        }
+    }
 }
