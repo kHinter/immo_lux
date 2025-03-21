@@ -1,7 +1,6 @@
 import pandas as pd
 import re
 import logging
-import os
 from unidecode import unidecode
 from airflow.models import Variable
 from . import utils
@@ -248,6 +247,8 @@ def athome_lu_data_cleaning(ds):
         "Verlorenkost" : "Bonnevoie",
         "Kohlenberg" : "Cessange"
     })
+
+    df["Agency_fees"] = df["Agency_fees"].apply(lambda fees: fees.replace() if pd.notnull(fees) else fees)
 
     #Translation of exposition from french to english
     df["Exposition"] = df["Exposition"].replace({

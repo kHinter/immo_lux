@@ -1,10 +1,8 @@
 import logging
 from airflow.models import Variable
-from . import utils
 
 #Custom modules
 from . import utils
-# from utils import fetch_url_with_retries
 
 def extract_athome_data(ds):
     #Import here to optimize the DAG preprocessing

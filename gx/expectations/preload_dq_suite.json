@@ -98,7 +98,7 @@
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
                 "column" : "Deposit",
-                "type_" : "int"
+                "type_" : "float"
             }
         },
         {

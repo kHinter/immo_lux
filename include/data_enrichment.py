@@ -6,7 +6,7 @@ from airflow.models import Variable
 from . import utils
 
 surface_trans_table = str.maketrans("", "", "sqm²(+/-")
-price_trans_table = str.maketrans("", "", "€" ,)
+price_trans_table = str.maketrans("", "", "€")
 
 ##REGEX
 monthly_charges_reg = re.compile("(?<=Monthly charges: )€?\d+(?:\.?,?\d+)?|(?<=Charges mensuelles: )€?\d+(?:\.?,?\d+)?", re.IGNORECASE)
@@ -81,7 +81,7 @@ no_agency_fees_reg = re.compile("No agency fees", re.IGNORECASE)
 def get_monthly_charge_from_desc(description):
     match = monthly_charges_reg.search(description)
     if match:
-        return match.group(0).strip().translate(price_trans_table)
+        return match.group(0).strip().translate(price_trans_table).replace(",", ".")
     return None
 
 def get_has_cellar_from_desc(description):
@@ -215,7 +215,12 @@ def enrich_surface_related_columns(df):
     return df
 
 def immotop_lu_enrichment(ds):
-    df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv")
+    df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv",
+    dtype={
+            "Floor_number" : "Int64",
+            "Bedrooms" : "Int64",
+            "Bathroom" : "Int64",
+            "Garages" : "Int64"})
 
     #Determine other attributes based on description
     df["Monthly_charges"] = df["Description"].apply(lambda description: get_monthly_charge_from_desc(description) if pd.notna(description) else pd.NA)
@@ -242,8 +247,6 @@ def athome_lu_enrichment(ds):
     df = pd.read_csv(
         f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv",
         dtype={
-            "Monthly_charges" : "Int64",
-            "Deposit" : "Int64",
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",

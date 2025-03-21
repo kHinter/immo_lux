@@ -35,7 +35,13 @@ def merge_dataframes(ds):
             "Bathroom" : "Int64",
             "Garages" : "Int64"})
 
-    df_immotop = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv")
+    df_immotop = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", dtype={
+            "Monthly_charges" : "Int64",
+            "Deposit" : "Int64",
+            "Floor_number" : "Int64",
+            "Bedrooms" : "Int64",
+            "Bathroom" : "Int64",
+            "Garages" : "Int64"})
 
     #Merge all df into a single one
     df = pd.concat([df_athome, df_immotop])
@@ -120,7 +126,11 @@ with DAG(
         task_id = "gx_dq_validation",
         data_context_root_dir="gx",
         #Can't use a dynamic path for the dataframe (e.g : merged_2024-12-01.csv) because this Operator is evaluated during DAG parsing
-        dataframe_to_validate=pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv"),
+        dataframe_to_validate=pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", dtype={
+            "Floor_number" : "Int64",
+            "Bedrooms" : "Int64",
+            "Bathroom" : "Int64",
+            "Garages" : "Int64"}),
         execution_engine="PandasExecutionEngine",
         data_asset_name="merged_data",
         expectation_suite_name="preload_dq_suite",
