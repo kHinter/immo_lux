@@ -8,6 +8,7 @@ from . import utils
 ##REGEX
 deposit_amount_reg = re.compile("((?<=Deposit amount: )€?\d+(?:\.\d+)?)|((?<=Montant caution: )€?\d+(?:\.\d+)?)", re.IGNORECASE)
 street_number_reg = re.compile("^\d+(?:-\d+)*(?:[a-zA-Z](?= |,))?,?")
+agency_fees_rent_months_reg = re.compile("\d(?=moisdeloyer)")
 
 ##TRANSLATE TABLES
 translate_table_price = str.maketrans("", "", "€ ,")
@@ -102,6 +103,20 @@ def get_deposit(row):
     else:
         return row["Deposit"].translate(translate_table_price)
 
+def get_agency_fees(row):
+    fees = row["Agency_fees"]
+
+    if pd.notna(fees):
+        if "%" in fees:
+            return pd.NA
+        else:
+            match = agency_fees_rent_months_reg.search(fees)
+            if match:
+                return str(int(match.group()) * row["Price"])
+            else:
+                return fees.replace("Not specified", "").translate(translate_table_price)
+    return fees
+
 def get_heating_athome(row):
     if row["Has_gas_heating"] == "Oui":
         return "Gas"
@@ -158,7 +173,6 @@ def immotop_lu_data_cleaning(ds):
     df_streets_sot = pd.read_excel(f"{Variable.get('immo_lux_data_folder')}/caclr.xlsx", sheet_name="RUE")
 
     df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name, df_streets_sot) if pd.notna(street_name) else pd.NA)
-    df["Agency_fees"] = df["Agency_fees"].apply(lambda fees: fees.replace("Not specified", "").translate(translate_table_price) if pd.notnull(fees) else fees)
 
     df["Has_lift"] = df["Has_lift"].map({"Yes" : "Oui", "No" : "Non"})
     
@@ -167,8 +181,7 @@ def immotop_lu_data_cleaning(ds):
 
     df["Price"] = df["Price"].apply(lambda price: price.replace("/month", "").translate(translate_table_price))
 
-    #Remove the % of commissions of the Agency fees
-    df["Agency_fees"] = df["Agency_fees"].apply(lambda fees: pd.NA if pd.notna(fees) and "%" in fees else fees)
+    df["Agency_fees"] = df.apply(get_agency_fees, axis=1)
 
     df["Bathroom"] = df["Bathroom"].apply(lambda bathroom: 4 if pd.notna(bathroom) and bathroom == "3+" else bathroom)
 
@@ -248,7 +261,7 @@ def athome_lu_data_cleaning(ds):
         "Kohlenberg" : "Cessange"
     })
 
-    df["Agency_fees"] = df["Agency_fees"].apply(lambda fees: fees.replace() if pd.notnull(fees) else fees)
+    df["Agency_fees"] = df.apply(get_agency_fees, axis=1)
 
     #Translation of exposition from french to english
     df["Exposition"] = df["Exposition"].replace({
