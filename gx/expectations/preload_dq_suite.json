@@ -2,56 +2,6 @@
     "data_asset_type" : null,
     "expectation_suite_name" : "preload_dq_suite",
     "expectations" : [
-        
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "Price"
-            }
-        },
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "Surface"
-            }
-        },
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "Link"
-            }
-        },
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "Website"
-            }
-        },
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "Type"
-            }
-        },
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "Photos"
-            }
-        },
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "Snapshot_day"
-            }
-        },
-        {
-            "expectation_type" : "expect_column_values_to_not_be_null",
-            "kwargs" : {
-                "column" : "City"
-            }
-        },
-
         {
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
@@ -67,10 +17,26 @@
             }
         },
         {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Agency_fees",
+                "min_value" : 0,
+                "max_value" : 30000
+            }
+        },
+        {
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
                 "column" : "Balcony_surface",
                 "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Balcony_surface",
+                "min_value" : 1,
+                "max_value" : 150
             }
         },
         {
@@ -81,10 +47,26 @@
             }
         },
         {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Bathroom",
+                "min_value" : 0,
+                "max_value" : 30
+            }
+        },
+        {
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
                 "column" : "Bedrooms",
                 "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Bedrooms",
+                "min_value" : 0,
+                "max_value" : 30
             }
         },
         {
@@ -95,6 +77,12 @@
             }
         },
         {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "City"
+            }
+        },
+        {
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
                 "column" : "Deposit",
@@ -102,10 +90,342 @@
             }
         },
         {
+            "expectation_type" : "expect_column_min_to_be_between",
+            "kwargs" : {
+                "column" : "Deposit",
+                "min_value" : 0,
+                "max_value" : 50000
+            }
+        },
+        {
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
                 "column" : "Description",
                 "type_" : "object"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "District",
+                "type_" : "object"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Energy_class",
+                "value_set" : ["A", "A+", "B", "C", "D", "E", "F", "G", "H", "I"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Exposition",
+                "value_set" : ["north", "north-east", "north-west", "west", "east", "south", "south-east", "south-west"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Floor_number",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Floor_number",
+                "min_value" : -2,
+                "max_value" : 40
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Garages",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Garages",
+                "min_value" : 1,
+                "max_value" : 15
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Garden_surface",
+                "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Garden_surface",
+                "min_value" : 1,
+                "max_value" : 50000
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Has_balcony",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Has_cellar",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Has_equiped_kitchen",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Has_garden",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Has_lift",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Has_terrace",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Heating",
+                "value_set" : ["Central", "Electric", "Gas", "Gasoil", "Heat pump", "Independent", "Pellets"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Insulation_class",
+                "value_set" : ["A", "A+", "B", "C", "D", "E", "F", "G", "H", "I"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Is_furnished",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_match_regex",
+            "kwargs" : {
+                "column" : "Link",
+                "regex" : "^https:\\/\\/www\\.athome\\.lu\\/rent.+\\.html$|^https:\\/\\/www\\.immotop\\.lu\\/en\\/annonces.+\\/$"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Link"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Monthly_charges",
+                "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Monthly_charges",
+                "min_value" : 0,
+                "max_value" : 25000
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Photos"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_match_regex",
+            "kwargs" : {
+                "column" : "Photos",
+                "regex" : "^(?:https:\\/\\/i1\\.static\\.athome\\.eu\\/images\\/annonces2\\/image_(?:\\w|\\/)+\\.(?:jpg|png) )*https:\\/\\/i1\\.static\\.athome\\.eu\\/images\\/annonces2\\/image_(?:\\w|\\/)+\\.(?:jpg|png)$|^(?:https:\\/\\/pic\\.immotop\\.lu\\/image(?:\\w|\\/)+m-c\\.(?:jpg|png) )*https:\\/\\/pic\\.immotop\\.lu\\/image(?:\\w|\\/)+m-c\\.(?:jpg|png)$"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Price",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Price",
+                "min_value" : 200,
+                "max_value" : 25000
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Price"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Shower_room",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Shower_room",
+                "min_value" : 0,
+                "max_value" : 25
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_match_regex",
+            "kwargs" : {
+                "column" : "Snapshot_day",
+                "regex" : "^(?:\\d{4})-(?:0[1-9]|1[0-2]|[1-9])-(?:[1-9]|0[1-9]|[1-2]\\d|3[0-1])$"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_unique_value_count_to_be_between",
+            "kwargs" : {
+                "column" : "Snapshot_day",
+                "min_value" : 1,
+                "max_value" : 1
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Snapshot_day"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Street_name",
+                "type_" : "object"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_match_regex",
+            "kwargs" : {
+                "column" : "Street_number",
+                "regex" : "^\\d+\\w?(?:-\\d+\\w?)*$"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Surface",
+                "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Surface"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Surface",
+                "min_value" : 9,
+                "max_value" : 8000
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Terrace_surface",
+                "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Terrace_surface",
+                "min_value" : 1,
+                "max_value" : 500
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Terrace_surface",
+                "type_" : "float"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Type",
+                "value_set" : ["Apartment", "Duplex", "Triplex", "House", "Mansion", "Penthouse", "Detached house", "Semi-detached house", "Row house", "Villa"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Type"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Website",
+                "value_set" : ["athome", "immotop.lu"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_not_be_null",
+            "kwargs" : {
+                "column" : "Website"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Street_name_validity",
+                "value_set" : ["Oui"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
+                "column" : "Is_flat",
+                "value_set" : ["Oui", "Non"]
             }
         }
     ],
