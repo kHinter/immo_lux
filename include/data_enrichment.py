@@ -49,13 +49,12 @@ exposition_reg = re.compile(
 )
 
 insulation_class_reg = re.compile(
-    "(?<=isolation thermique: )[A-G]|(?<=thermal protection class: )[A-G]|(?<=thermal insulation: )[A-G]"
-    , re.IGNORECASE
+    "(?<=Isolation thermique: )[A-I]|(?<=Thermal protection class: )[A-I]|(?<=Thermal insulation: )[A-I]"
 )
 
 energy_class_reg = re.compile(
-    "(?<=energy class )[A-G]|(?<=energy class: )[A-G]|(?<=classe énergétique )[A-G]|(?<=classe énergétique : )[A-G]"
-    , re.IGNORECASE
+    "(?<=energy class )[A-I]|(?<=energy class: )[A-I]|(?<=classe énergétique )[A-I]|(?<=classe énergétique : )[A-I]"
+    "|(?<=Energy class )[A-I]|(?<=Energy class: )[A-I]|(?<=Classe énergétique )[A-I]|(?<=Classe énergétique : )[A-I]"
 )
 
 has_cellar_reg = re.compile("(no +cellar|pas +de +cave)|(cellar|cave)", re.IGNORECASE)
