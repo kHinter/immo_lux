@@ -378,6 +378,8 @@ def merge_all_df_and_treat_duplicates(ds):
             logging.info(f"\t Sum of similarity score : {similarity_score_sum}")
         i+=1
         accomodations_embeddings.pop(i+2, None)
+    
+    utils.create_data_related_folder_if_not_exists("deduplicated")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/deduplicated/merged_accomodations_{ds}.csv", index=False)
 
     #Save the metadata

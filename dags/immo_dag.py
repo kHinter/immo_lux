@@ -48,6 +48,24 @@ def merge_dataframes(ds):
 
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", index=False)
 
+def verify_all_columns_are_in_gx_dq_suite():
+    #Get the columns list from merged df
+    merged_df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv")
+    #List of columns that are not present in the GreatExpectations suite
+    missing_columns = merged_df.columns.tolist()
+
+    import json
+    with open("gx/expectations/preload_dq_suite.json", "r") as f:
+        json_suite = json.load(f)
+
+        for expectation in json_suite["expectations"]:
+            column_name = expectation["kwargs"]["column"]
+            if column_name in missing_columns:
+                missing_columns.remove(column_name)
+
+    if len(missing_columns) != 0:
+        raise RuntimeError(f"The following columns are not present in the GreatExpectations suite : {missing_columns}")
+
 if Variable.get("immo_lux_data_folder", default_var=None) is None:
     airflow_home = os.environ["AIRFLOW_HOME"]
     Variable.set("immo_lux_data_folder", f"{airflow_home}/dags/data")
@@ -112,6 +130,11 @@ with DAG(
         python_callable=merge_dataframes
     )
 
+    verify_columns_are_in_gx_dq_suite = PythonOperator(
+        task_id = "verify_all_columns_are_in_gx_dq_suite",
+        python_callable=verify_all_columns_are_in_gx_dq_suite
+    )
+
     treat_duplicates = PythonOperator(
         task_id = "merge_all_df_and_treat_duplicates",
         python_callable=merge_all_df_and_treat_duplicates
@@ -144,7 +167,7 @@ with DAG(
     athome_lu_data_enrichment >> merge_df
     immotop_lu_data_enrichment >> merge_df
 
-    merge_df >> gx_dq_validation
+    merge_df >> verify_columns_are_in_gx_dq_suite >> gx_dq_validation
 
     gx_dq_validation >> treat_duplicates
     gx_dq_validation >> gen_report
