@@ -379,7 +379,8 @@ def extract_immotop_lu_data(ds):
                 item["Photos"] = ""
 
                 first_img_url = details.find("img", "nd-figure__content nd-ratio__img").get("src")
-                if not first_img_url.startswith("/_next/"):
+                #To avoid getting images not related to accomodations
+                if "_next/static/media" not in first_img_url:
                     item["Photos"] += first_img_url + " "
 
                 slideshow_items = details.find_all("div", "nd-slideshow__item")

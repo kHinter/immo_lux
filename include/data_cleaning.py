@@ -156,7 +156,8 @@ def immotop_lu_data_cleaning(ds):
 
     df.rename(columns=column_names, inplace=True)
 
-    df["Surface"] = df["Surface"].apply(lambda surface: surface.replace("m²", "").replace(" ", "") if pd.notnull(surface) else surface)
+    df["Surface"] = df["Surface"].apply(lambda surface: surface.replace("m²", "").replace(" ", "").replace(",", ".") if pd.notnull(surface) else surface)
+    df["Surface"] = df["Surface"].astype(float)
     
     #Add a comma at the end so the function get_street_name_and_number can work properly
     df["Address"] = df["Address"].apply(lambda address: address + "," if pd.notnull(address) else address)
@@ -204,6 +205,25 @@ def immotop_lu_data_cleaning(ds):
         "Gasperich-Cloche d’or" : "Gasperich",
         "Bonnevoie-Verlorenkost" : "Bonnevoie"
     })
+
+    df["Type"] = df["Type"].apply(lambda type: type.strip())
+    df["Type"] = df["Type"].replace({
+        "Appartement" : "Apartment",
+        "Chambre" : "Apartment",
+        "Apartment | Full ownership" : "Apartment",
+        "Maison" : "House",
+        "Maison de maître" : "Mansion",
+        "Maison individuelle" : "Detached house",
+        "Maison jumelée" : "Semi-detached house",
+        "Maison mitoyenne" : "Row house",
+        "Multi-family detached house" : "Detached house",
+        "Single-family detached house" : "Detached house",
+        "Single family villa" : "Villa",
+        "Studio" : "Apartment",
+        "Studio | Full ownership" : "Apartment",
+        "Chalet" : "Lodge",
+        "Châlet" : "Lodge"
+    })
     
     df.drop(df[df.Type == "Building"].index, inplace=True)
     df.drop(columns=["Rental guarantee", "Condominium_fees"], inplace=True)
@@ -215,6 +235,8 @@ def immotop_lu_data_cleaning(ds):
     logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
 
     df.drop(columns=["Address"], inplace=True)
+    #Drop the lines having a surface below 9 m² (minimum rental surface in Luxembourg)
+    df.drop(df[df["Surface"] < 9].index, inplace=True)
 
     utils.create_data_related_folder_if_not_exists("cleaned")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv", index=False)
@@ -239,6 +261,12 @@ def athome_lu_data_cleaning(ds):
     df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
 
     df["Surface"] = df["Surface"].apply(lambda surface : surface.replace(",", "."))
+    df["Surface"] = df["Surface"].astype(float)
+    
+    df["Garden_surface"] = df["Garden_surface"].apply(lambda garden_surface : garden_surface.replace("\u202f", "") if pd.notna(garden_surface) else garden_surface)
+
+    #Get rid of the balcony surface when its value is too high
+    df.loc[df["Balcony_surface"] > 150, "Balcony_surface"] = pd.NA
 
     #Determine the street name and/or street number
     df = df.apply(get_street_name_and_number, axis=1)
@@ -259,6 +287,25 @@ def athome_lu_data_cleaning(ds):
         "Pulvermuehle" : "Pulvermuhl",
         "Verlorenkost" : "Bonnevoie",
         "Kohlenberg" : "Cessange"
+    })
+
+    df["Type"] = df["Type"].apply(lambda type: type.strip())
+    df["Type"] = df["Type"].replace({
+        "Appartement" : "Apartment",
+        "Chambre" : "Apartment",
+        "Apartment | Full ownership" : "Apartment",
+        "Maison" : "House",
+        "Maison de maître" : "Mansion",
+        "Maison individuelle" : "Detached house",
+        "Maison jumelée" : "Semi-detached house",
+        "Maison mitoyenne" : "Row house",
+        "Multi-family detached house" : "Detached house",
+        "Single-family detached house" : "Detached house",
+        "Single-family villa" : "Villa",
+        "Studio" : "Apartment",
+        "Studio | Full ownership" : "Apartment",
+        "Chalet" : "Lodge",
+        "Châlet" : "Lodge"
     })
 
     df["Agency_fees"] = df.apply(get_agency_fees, axis=1)
@@ -285,6 +332,8 @@ def athome_lu_data_cleaning(ds):
     logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
 
     df.drop(columns=["Address"], inplace=True)
+    #Drop the lines having a surface below 9 m² (minimum rental surface in Luxembourg)
+    df.drop(df[df["Surface"] < 9].index, inplace=True)
 
     utils.create_data_related_folder_if_not_exists("cleaned")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv", index=False)
