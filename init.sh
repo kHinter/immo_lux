@@ -26,6 +26,9 @@ airflow_init()
 
     cd $BASH_DIR
 
+    #Save .gitignore content before being overwritten by airflowctl
+    cp .gitignore gitignore.txt
+
     airflowctl init .
 
     echo "" >> .env
@@ -33,6 +36,11 @@ airflow_init()
     echo "AIRFLOW__CORE__EXECUTOR=LocalExecutor" >> .env
 
     airflowctl build
+
+    #Restore .gitignore content
+    rm .gitignore
+    mv gitignore.txt .gitignore
+
     airflowctl start --background
 }
 
