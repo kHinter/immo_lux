@@ -66,10 +66,6 @@ def verify_all_columns_are_in_gx_dq_suite():
     if len(missing_columns) != 0:
         raise RuntimeError(f"The following columns are not present in the GreatExpectations suite : {missing_columns}")
 
-if Variable.get("immo_lux_data_folder", default_var=None) is None:
-    airflow_home = os.environ["AIRFLOW_HOME"]
-    Variable.set("immo_lux_data_folder", f"{airflow_home}/dags/data")
-
 #Creation of the csv file consummed by the GreatExpectationsOperator
 if not os.path.exists(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv"):
     with open(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", "w") as f:
@@ -92,7 +88,7 @@ with DAG(
     "immo_dag",
     default_args=default_args,
     description="Web scraping of several real estate listing websites",
-    schedule='@daily',
+    schedule='1 0 * * *',
     catchup=False
 ) as dag:
     extract_data_from_immotop_lu = PythonOperator(

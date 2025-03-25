@@ -247,6 +247,12 @@
             }
         },
         {
+            "expectation_type" : "expect_column_values_to_be_unique",
+            "kwargs" : {
+                "column" : "Link"
+            }
+        },
+        {
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
                 "column" : "Monthly_charges",

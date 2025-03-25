@@ -93,5 +93,5 @@ def generate_dq_report(ds):
     #Complete the template with my dynamic data
     reportText = html_template.render(context)
     
-    with open(f"{airflow_home}/dags/reports/dq_report_{ds}.html", "w") as f:
+    with open(f"{airflow_home}/reports/dq_report_{ds}.html", "w") as f:
         f.write(reportText)

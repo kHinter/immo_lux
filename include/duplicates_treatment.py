@@ -384,6 +384,7 @@ def merge_all_df_and_treat_duplicates(ds):
 
     #Save the metadata
     df_comparisons_number = pd.DataFrame({"Comparisons_number" : comparisons_number})
+    utils.create_data_related_folder_if_not_exists("tmp")
     df_comparisons_number.to_csv(f"{Variable.get('immo_lux_data_folder')}/tmp/comp_number_{ds}.csv", index=False)
 
 # merge_all_df_and_treat_duplicates("2025-02-10")
