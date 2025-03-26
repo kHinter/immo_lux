@@ -223,12 +223,13 @@ def immotop_lu_enrichment(ds):
 
     #Determine other attributes based on description
     df["Monthly_charges"] = df["Description"].apply(lambda description: get_monthly_charge_from_desc(description) if pd.notna(description) else pd.NA)
-    df["Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
     df["Exposition"] = df["Description"].apply(lambda description: get_exposition_from_desc(description) if pd.notna(description) else pd.NA)
-    df["Insulation_class"] = df["Description"].apply(lambda description: get_insulation_class_from_desc(description) if pd.notna(description) else pd.NA)
-    df["Energy_class"] = df["Description"].apply(lambda description: get_energy_class_from_desc(description) if pd.notna(description) else pd.NA)
     df["Has_cellar"] = df["Description"].apply(lambda description: get_has_cellar_from_desc(description) if pd.notna(description) else pd.NA)
     df["Has_garden"] = df["Description"].apply(lambda description: get_has_garden_from_desc(description) if pd.notna(description) else pd.NA)
+
+    df.loc[df["Is_flat"].isna(), "Is_flat"] = df.loc[df["Is_flat"].isna(), "Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Insulation_class"].isna(), "Insulation_class"] = df.loc[df["Insulation_class"].isna(), "Description"].apply(lambda description: get_insulation_class_from_desc(description) if pd.notna(description) else pd.NA)
+    df.loc[df["Energy_class"].isna(), "Energy_class"] = df.loc[df["Energy_class"].isna(), "Description"].apply(lambda description: get_energy_class_from_desc(description) if pd.notna(description) else pd.NA)
 
     df = enrich_surface_related_columns(df)
 
