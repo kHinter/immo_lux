@@ -252,7 +252,7 @@ def immotop_lu_data_cleaning(ds):
 
 def athome_lu_data_cleaning(ds):
     df = pd.read_csv(
-        f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}.csv",
+        f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -267,7 +267,7 @@ def athome_lu_data_cleaning(ds):
 
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df["City"] = df["City"].apply(lambda city : city.strip())
-    
+
     #Drop all the columns related to heating type
     df.drop(columns=["Has_electric_heating", "Has_gas_heating", "Has_heat_pump", "Has_oil_heating", "Has_pellet_heating", "Has_solar_panel"], inplace=True)
 
@@ -348,7 +348,7 @@ def athome_lu_data_cleaning(ds):
     df.drop(df[df["Surface"] < 9].index, inplace=True)
 
     utils.create_data_related_folder_if_not_exists("cleaned")
-    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_{ds}.csv", index=False)
 
 # athome_lu_data_cleaning("2025-02-05")
 # immotop_lu_data_cleaning("2025-01-29")

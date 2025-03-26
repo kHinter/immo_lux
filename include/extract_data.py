@@ -322,7 +322,7 @@ def extract_athome_data(ds):
         df["Website"] = "athome"
 
         utils.create_data_related_folder_if_not_exists("raw")
-        df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_last3d_{ds}.csv", index=False)
+        df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}.csv", index=False)
     else:
         logging.error(f"The extraction task can't be executed because its execution date ({ds}) is earlier or later than yesterday ({yesterday}) !")
 

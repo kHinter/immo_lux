@@ -22,10 +22,10 @@ def generate_dq_report(ds):
         "Athome.lu" : {
             "steps" : {
                 "cleaned" : {
-                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv")
+                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_{ds}.csv")
                 },
                 "enriched" : {
-                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv")
+                    "df" : pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_{ds}.csv")
                 }
             }
         }

@@ -245,7 +245,7 @@ def immotop_lu_enrichment(ds):
 
 def athome_lu_enrichment(ds):
     df = pd.read_csv(
-        f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_last3d_{ds}.csv",
+        f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_{ds}.csv",
         dtype={
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
@@ -269,7 +269,7 @@ def athome_lu_enrichment(ds):
     df.loc[df["Has_terrace"].isna(), "Has_terrace"] = df.loc[df["Has_terrace"].isna(), "Description"].apply(lambda description: get_has_terrace_from_desc(description) if pd.notna(description) else pd.NA)
 
     utils.create_data_related_folder_if_not_exists("enriched")
-    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv", index=False)
+    df.to_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/athome_{ds}.csv", index=False)
 
 # immotop_lu_enrichment("2025-03-05")
 # athome_lu_enrichment("2025-03-02")

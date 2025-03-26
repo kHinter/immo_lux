@@ -26,7 +26,7 @@ def merge_dataframes(ds):
 
     #Retrieve all df
     df_athome = pd.read_csv(
-        f"{Variable.get('immo_lux_data_folder')}/enriched/athome_last3d_{ds}.csv",
+        f"{Variable.get('immo_lux_data_folder')}/enriched/athome_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
@@ -65,6 +65,19 @@ def verify_all_columns_are_in_gx_dq_suite():
 
     if len(missing_columns) != 0:
         raise RuntimeError(f"The following columns are not present in the GreatExpectations suite : {missing_columns}")
+
+def verify_no_data_loss_after_data_enrichment(ds, filename_prefix):
+    #Retrieve all df before enrichment
+    df_data_cleaning = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/{filename_prefix}_{ds}.csv")
+    df_data_enrichment = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/{filename_prefix}_{ds}.csv")
+
+    for column in df_data_enrichment.columns:
+        if column in df_data_cleaning.columns:
+            non_na_values_count_data_cleaning = df_data_cleaning[column].count()
+            non_na_values_count_data_enrichment = df_data_enrichment[column].count()
+            if non_na_values_count_data_enrichment < non_na_values_count_data_cleaning:
+                delta = non_na_values_count_data_cleaning - non_na_values_count_data_enrichment
+                raise RuntimeError(f"Data loss: After data enrichment, the column {column} has {delta} fewer non-NA values compared to before.")
 
 #Creation of the csv file consummed by the GreatExpectationsOperator
 if not os.path.exists(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv"):
@@ -121,6 +134,18 @@ with DAG(
         python_callable=athome_lu_enrichment
     )
 
+    verify_no_data_loss_after_athome_lu_data_enrichment = PythonOperator(
+        task_id = "verify_no_data_loss_after_athome_lu_data_enrichment",
+        python_callable=verify_no_data_loss_after_data_enrichment,
+        op_kwargs={"filename_prefix" : "athome"}
+    )
+
+    verify_no_data_loss_after_immotop_lu_data_enrichment = PythonOperator(
+        task_id = "verify_no_data_loss_after_immotop_lu_data_enrichment",
+        python_callable=verify_no_data_loss_after_data_enrichment,
+        op_kwargs={"filename_prefix" : "immotop_lu"}
+    )
+
     merge_df = PythonOperator(
         task_id = "merge_dataframes",
         python_callable=merge_dataframes
@@ -159,11 +184,11 @@ with DAG(
         return_json_dict=True
     )
     
-    extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment
-    extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment
+    extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment >> verify_no_data_loss_after_athome_lu_data_enrichment
+    extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment >> verify_no_data_loss_after_immotop_lu_data_enrichment
 
-    athome_lu_data_enrichment >> merge_df
-    immotop_lu_data_enrichment >> merge_df
+    verify_no_data_loss_after_athome_lu_data_enrichment >> merge_df
+    verify_no_data_loss_after_immotop_lu_data_enrichment >> merge_df
 
     merge_df >> verify_columns_are_in_gx_dq_suite >> gx_dq_validation
 
