@@ -72,6 +72,21 @@
         {
             "expectation_type" : "expect_column_values_to_be_of_type",
             "kwargs" : {
+                "column" : "Building_total_floors",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Building_total_floors",
+                "min_value" : 1,
+                "max_value" : 40
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
                 "column" : "City",
                 "type_" : "object"
             }
@@ -80,6 +95,21 @@
             "expectation_type" : "expect_column_values_to_not_be_null",
             "kwargs" : {
                 "column" : "City"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_of_type",
+            "kwargs" : {
+                "column" : "Construction_year",
+                "type_" : "int"
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_between",
+            "kwargs" : {
+                "column" : "Construction_year",
+                "min_value" : 1500,
+                "max_value" : 2025
             }
         },
         {
@@ -173,6 +203,13 @@
         {
             "expectation_type" : "expect_column_values_to_be_in_set",
             "kwargs" : {
+                "column" : "Has_attic",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
                 "column" : "Has_balcony",
                 "value_set" : ["Oui", "Non"]
             }
@@ -208,6 +245,13 @@
         {
             "expectation_type" : "expect_column_values_to_be_in_set",
             "kwargs" : {
+                "column" : "Has_swimming_pool",
+                "value_set" : ["Oui", "Non"]
+            }
+        },
+        {
+            "expectation_type" : "expect_column_values_to_be_in_set",
+            "kwargs" : {
                 "column" : "Has_terrace",
                 "value_set" : ["Oui", "Non"]
             }
@@ -216,7 +260,7 @@
             "expectation_type" : "expect_column_values_to_be_in_set",
             "kwargs" : {
                 "column" : "Heating",
-                "value_set" : ["Central", "Electric", "Gas", "Gasoil", "Heat pump", "Independent", "Pellets"]
+                "value_set" : ["Central", "Electric", "Gas", "Gasoil", "Heat pump", "Independent", "Pellets", "Solar", "District heating"]
             }
         },
         {

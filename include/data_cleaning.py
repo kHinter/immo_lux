@@ -122,6 +122,14 @@ def get_heating_athome(row):
         return "Gas"
     elif row["Has_electric_heating"] == "Oui":
         return "Electric"
+    elif row["Has_oil_heating"] == "Oui":
+        return "Gasoil"
+    elif row["Has_heat_pump"] == "Oui":
+        return "Heat pump"
+    elif row["Has_pellet_heating"] == "Oui":
+        return "Pellets"
+    elif row["Has_solar_panel"] == "Oui":
+        return "Solar"
 
 def get_district(district):
     district_lower = district.lower()
@@ -197,7 +205,8 @@ def immotop_lu_data_cleaning(ds):
         "Independent, gas powered" : "Gas",
         "Independent, power supply" : "Electric",
         "Independent, powered by gas oil" : "Gasoil",
-        "Independent, powered by pellets" : "Pellets"
+        "Independent, powered by pellets" : "Pellets",
+        "Independent, powered by district heating" : "District heating"
     })
 
     #Use replace instead of map to avoid replacing values not present in the dict by NaN
@@ -258,10 +267,13 @@ def athome_lu_data_cleaning(ds):
 
     df["Heating"] = df.apply(get_heating_athome, axis=1)
     df["City"] = df["City"].apply(lambda city : city.strip())
-    df.drop(columns=["Has_electric_heating", "Has_gas_heating"], inplace=True)
+    
+    #Drop all the columns related to heating type
+    df.drop(columns=["Has_electric_heating", "Has_gas_heating", "Has_heat_pump", "Has_oil_heating", "Has_pellet_heating", "Has_solar_panel"], inplace=True)
 
-    df["Surface"] = df["Surface"].apply(lambda surface : surface.replace(",", "."))
-    df["Surface"] = df["Surface"].astype(float)
+    df["Surface"] = df["Surface"].apply(lambda surface : float(surface.replace(",", ".")))
+
+    df["Balcony_surface"] = df["Balcony_surface"].apply(lambda balcony_surface : float(balcony_surface.replace("m", "").replace("²", "").replace(" ", "")) if pd.notna(balcony_surface) else balcony_surface)
     
     df["Garden_surface"] = df["Garden_surface"].apply(lambda garden_surface : garden_surface.replace("\u202f", "") if pd.notna(garden_surface) else garden_surface)
 

@@ -115,6 +115,12 @@ def extract_athome_data(ds):
                         else:
                             item["Floor_number"] = None
 
+                        building_total_floors = details.find("div", "characteristics-item characteristic.floors")
+                        if building_total_floors != None:
+                            item["Building_total_floors"] = building_total_floors.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Building_total_floors"] = None
+
                         bedrooms = details.find("div", "characteristics-item characteristic.bedrooms")
                         if bedrooms != None:
                             item["Bedrooms"] = bedrooms.find("span", "characteristics-item-value").get_text()
@@ -198,6 +204,18 @@ def extract_athome_data(ds):
                             item["Has_cellar"] = has_cellar.find("span", "characteristics-item-value").get_text()
                         else:
                             item["Has_cellar"] = None
+
+                        has_attic = details.find("div", "characteristics-item characteristic.hasAttic")
+                        if has_attic != None:
+                            item["Has_attic"] = has_attic.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Has_attic"] = None
+
+                        has_swimming_pool = details.find("div", "characteristics-item characteristic.hasSwimmingPool")
+                        if has_swimming_pool != None:
+                            item["Has_swimming_pool"] = has_swimming_pool.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Has_swimming_pool"] = None
                         
                         #Heating types
                         has_gas_heating = details.find("div", "characteristics-item energy.hasGasHeating")
@@ -211,6 +229,36 @@ def extract_athome_data(ds):
                             item["Has_electric_heating"] = has_electric_heating.find("span", "characteristics-item-value").get_text()
                         else:
                             item["Has_electric_heating"] = None
+
+                        has_oil_heating = details.find("div", "characteristics-item energy.hasOilHeating")
+                        if has_oil_heating != None:
+                            item["Has_oil_heating"] = has_oil_heating.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Has_oil_heating"] = None
+
+                        has_heat_pump = details.find("div", "characteristics-item energy.hasPumpHeating")
+                        if has_heat_pump != None:
+                            item["Has_heat_pump"] = has_heat_pump.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Has_heat_pump"] = None
+
+                        has_pellet_heating = details.find("div", "characteristics-item energy.hasPelletsHeating")
+                        if has_pellet_heating != None:
+                            item["Has_pellet_heating"] = has_pellet_heating.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Has_pellet_heating"] = None
+
+                        has_solar_panel = details.find("div", "characteristics-item energy.hasSolarPanels")
+                        if has_solar_panel != None:
+                            item["Has_solar_panel"] = has_solar_panel.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Has_solar_panel"] = None
+
+                        construction_year = details.find("div", "characteristics-item characteristic.constructionYear")
+                        if construction_year != None:
+                            item["Construction_year"] = construction_year.find("span", "characteristics-item-value").get_text()
+                        else:
+                            item["Construction_year"] = None
                         
                         exposition = details.find("div", "characteristics-item characteristic.exposition")
                         if exposition != None:

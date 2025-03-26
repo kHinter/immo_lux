@@ -150,6 +150,8 @@ with DAG(
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
             "Garages" : "Int64",
+            "Building_total_floors" : "Int64",
+            "Construction_year" : "Int64",
             "Shower_room" : "Int64"}),
         execution_engine="PandasExecutionEngine",
         data_asset_name="merged_data",
