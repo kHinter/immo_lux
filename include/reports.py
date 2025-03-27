@@ -92,6 +92,10 @@ def generate_dq_report(ds):
 
     #Complete the template with my dynamic data
     reportText = html_template.render(context)
+
+    #Create the report folder if it doesn't already exist
+    if not os.path.exists(f"{airflow_home}/reports"):
+        os.makedirs(f"{airflow_home}/reports")
     
     with open(f"{airflow_home}/reports/dq_report_{ds}.html", "w") as f:
         f.write(reportText)

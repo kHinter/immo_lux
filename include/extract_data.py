@@ -12,8 +12,9 @@ def extract_athome_data(ds):
     from bs4 import BeautifulSoup
 
     yesterday = (date.today() - timedelta(days=1)).isoformat()
+    today = date.today().isoformat()
 
-    if ds == yesterday:
+    if ds == yesterday or ds == today:
         translate_table_price = str.maketrans("", "", "€ \u202f\xa0'")
         athome_url = "https://www.athome.lu/en/srp/?tr=rent&sort=price_asc&q=faee1a4a&loc=L2-luxembourg&ptypes=house,flat&page="
 
@@ -332,8 +333,9 @@ def extract_immotop_lu_data(ds):
     from bs4 import BeautifulSoup
 
     yesterday = (date.today() - timedelta(days=1)).isoformat()
+    today = date.today().isoformat()
 
-    if ds == yesterday:
+    if ds == yesterday or ds == today:
         accomodations = []
         proceed = True
         current_page = 1
