@@ -219,7 +219,8 @@ def immotop_lu_enrichment(ds):
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
-            "Garages" : "Int64"})
+            "Garages" : "Int64",
+            "Street_number" : "object"})
 
     #Determine other attributes based on description
     df["Monthly_charges"] = df["Description"].apply(lambda description: get_monthly_charge_from_desc(description) if pd.notna(description) else pd.NA)
@@ -250,7 +251,8 @@ def athome_lu_enrichment(ds):
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
-            "Garages" : "Int64"})
+            "Garages" : "Int64",
+            "Street_number" : "object"})
 
     #Determine other attributes based on description
     df["Is_flat"] = df["Description"].apply(lambda description: get_is_flat_from_desc(description) if pd.notna(description) else pd.NA)

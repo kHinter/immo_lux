@@ -33,7 +33,8 @@ def merge_dataframes(ds):
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
-            "Garages" : "Int64"})
+            "Garages" : "Int64",
+            "Street_number" : "object"})
 
     df_immotop = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", dtype={
             "Monthly_charges" : "Int64",
@@ -41,7 +42,8 @@ def merge_dataframes(ds):
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
             "Bathroom" : "Int64",
-            "Garages" : "Int64"})
+            "Garages" : "Int64",
+            "Street_number" : "object"})
 
     #Merge all df into a single one
     df = pd.concat([df_athome, df_immotop])

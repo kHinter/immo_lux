@@ -442,7 +442,7 @@
             "expectation_type" : "expect_column_values_to_be_in_set",
             "kwargs" : {
                 "column" : "Type",
-                "value_set" : ["Apartment", "Duplex", "Triplex", "House", "Mansion", "Penthouse", "Detached house", "Semi-detached house", "Row house", "Villa", "Lodge"]
+                "value_set" : ["Apartment", "Duplex", "Triplex", "House", "Mansion", "Penthouse", "Detached house", "Semi-detached house", "Row house", "Villa", "Lodge", "Loft"]
             }
         },
         {
