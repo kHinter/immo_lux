@@ -26,7 +26,7 @@ To get the opencage API key, go to https://opencagedata.com/, create an account 
 
 # Data Pipeline
 
-![image](https://github.com/user-attachments/assets/1619b7d2-63c1-4071-9850-f23b25517a8f)
+![image](https://github.com/user-attachments/assets/2cafd2e0-846d-4c77-899b-cc276d8ee366)
 
 _The Airflow DAG structure_
 
@@ -51,6 +51,7 @@ In this phase, the raw data extracted from the websites is cleaned and transform
 - Normalizing text formats (e.g : removing spaces and irrelevant substrings)
 - Converting data types for consistency
 - Dropping irrelevant rows and columns
+- Handling outliers and invalid values (e.g., replacing apartment surface areas below 9m² with NA)
 
 The transformed data is saved as CSV files in the _cleaned_ folder.
 
@@ -66,4 +67,12 @@ The extracted features include, but are not limited to:
 
 - Garden, balcony and terrace surface area
 - Has_lift, Is_flat, Has_cellar, Has_balcony, Has_garden, Has_terrace
+
+## 4) Data quality
+
+__DAG tasks concerned :__ _verify_no_data_loss_after_athome_lu_data_enrichment_, _verify_no_data_loss_after_immotop_lu_data_enrichment_, _verify_columns_are_in_gx_dq_suite_, _gx_dq_validation_
+
+1) The tasks starting with "verify_no_data_loss_after" automatically ensure that no existing values were mistakenly replaced with NA during the data enrichment process.
+2) The "verify_columns_are_in_gx_dq_suite" task ensures that all columns in the merged dataframe are included in the GreatExpectations data quality checks
+
 
