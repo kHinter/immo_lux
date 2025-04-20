@@ -168,6 +168,7 @@ def get_exposition_from_desc(description):
         "sud-ouest": "south-west",
         "sud-est": "south-east",
         "sud": "south",
+        "nord": "north",
         "nord-ouest": "north-west",
         "nord-est": "north-east",
         "ouest": "west",

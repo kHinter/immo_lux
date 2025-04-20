@@ -12,6 +12,31 @@ agency_fees_rent_months_reg = re.compile("\d(?=moisdeloyer)")
 
 ##TRANSLATE TABLES
 translate_table_price = str.maketrans("", "", "€ ,")
+accomodation_types = {
+    "Appartement" : "Apartment",
+    "Chambre" : "Apartment",
+    "Apartment | Full ownership" : "Apartment",
+    "Maison" : "House",
+    "Maison de maître" : "Mansion",
+    "Maison individuelle" : "Detached house",
+    "Maison jumelée" : "Semi-detached house",
+    "Maison mitoyenne" : "Row house",
+    "Multi-family detached house" : "Detached house",
+    "Single-family detached house" : "Detached house",
+    "Single-family villa" : "Villa",
+    "Single family villa" : "Villa",
+    "Studio" : "Apartment",
+    "Studio | Full ownership" : "Apartment",
+    "Chalet" : "Lodge",
+    "Châlet" : "Lodge",
+    "Ferme" : "Farmhouse",
+    "Apartment | Timeshare" : "Apartment",
+    "Building | Luxury property" : "Luxury property",
+    "Single-family detached house | Full ownership" : "Detached house",
+    "Gîte" : "House",
+    "Rez-de-chauss\u00e9e" : pd.NA,
+    "Duplex | Full ownership" : "Duplex"
+}
 
 street_abbreviations = {
     "rte" : "route",
@@ -104,7 +129,7 @@ def get_deposit(row):
         return row["Deposit"].translate(translate_table_price)
 
 def get_agency_fees(row):
-    fees = row["Agency_fees"]
+    fees = str(row["Agency_fees"])
 
     if pd.notna(fees):
         if "%" in fees:
@@ -115,7 +140,7 @@ def get_agency_fees(row):
                 return str(int(match.group()) * row["Price"])
             else:
                 return fees.replace("Not specified", "").translate(translate_table_price)
-    return fees
+    return float(fees)
 
 def get_heating_athome(row):
     if row["Has_gas_heating"] == "Oui":
@@ -130,6 +155,20 @@ def get_heating_athome(row):
         return "Pellets"
     elif row["Has_solar_panel"] == "Oui":
         return "Solar"
+
+def get_type_from_athome_link(link):
+    if "apartment" in link:
+        return "Apartment"
+    elif "house" in link:
+        return "House"
+
+def get_photos(photos):
+    photo_list = photos.split(" ")
+    cleaned_photos = " ".join(["" if "pic.immotop.lu/plan" in photo or "pic.immotop.lu/agenti" in photo else photo for photo in photo_list]).replace("  ", " ").rstrip()
+
+    if cleaned_photos == "":
+        return pd.NA
+    return cleaned_photos
 
 def get_district(district):
     district_lower = district.lower()
@@ -146,7 +185,7 @@ def get_district(district):
 def immotop_lu_data_cleaning(ds):
     df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/raw/immotop_lu_{ds}.csv", dtype={"Bedrooms" : "Int64"})
 
-    df.dropna(subset=["Surface", "Price", "Photos"], inplace=True)
+    df.dropna(subset=["Surface", "Price"], inplace=True)
     
     #Starting by renaming the columns to correspond with all the other files
     #Key = Feature name displayed on the website, Value = Column name on the df
@@ -164,8 +203,7 @@ def immotop_lu_data_cleaning(ds):
 
     df.rename(columns=column_names, inplace=True)
 
-    df["Surface"] = df["Surface"].apply(lambda surface: surface.replace("m²", "").replace(" ", "").replace(",", ".") if pd.notnull(surface) else surface)
-    df["Surface"] = df["Surface"].astype(float)
+    df["Surface"] = df["Surface"].apply(lambda surface: float(surface.replace("m²", "").replace(" ", "").replace(",", ".")) if pd.notnull(surface) else surface)
     
     #Add a comma at the end so the function get_street_name_and_number can work properly
     df["Address"] = df["Address"].apply(lambda address: address + "," if pd.notnull(address) else address)
@@ -188,7 +226,7 @@ def immotop_lu_data_cleaning(ds):
     df["Has_terrace"] = df["Has_terrace"].map({"Yes" : "Oui", "No" : "Non"})
     df["Has_balcony"] = df["Has_balcony"].apply(lambda has_balcony: "Oui" if has_balcony == "Yes" else has_balcony)
 
-    df["Price"] = df["Price"].apply(lambda price: price.replace("/month", "").translate(translate_table_price))
+    df["Price"] = df["Price"].apply(lambda price: int(price.replace("/month", "").translate(translate_table_price)))
 
     df["Agency_fees"] = df.apply(get_agency_fees, axis=1)
 
@@ -216,23 +254,9 @@ def immotop_lu_data_cleaning(ds):
     })
 
     df["Type"] = df["Type"].apply(lambda type: type.strip())
-    df["Type"] = df["Type"].replace({
-        "Appartement" : "Apartment",
-        "Chambre" : "Apartment",
-        "Apartment | Full ownership" : "Apartment",
-        "Maison" : "House",
-        "Maison de maître" : "Mansion",
-        "Maison individuelle" : "Detached house",
-        "Maison jumelée" : "Semi-detached house",
-        "Maison mitoyenne" : "Row house",
-        "Multi-family detached house" : "Detached house",
-        "Single-family detached house" : "Detached house",
-        "Single family villa" : "Villa",
-        "Studio" : "Apartment",
-        "Studio | Full ownership" : "Apartment",
-        "Chalet" : "Lodge",
-        "Châlet" : "Lodge"
-    })
+    df["Type"] = df["Type"].replace(accomodation_types)
+
+    df["Photos"] = df["Photos"].apply(lambda photos: get_photos(photos) if pd.notna(photos) else photos)
     
     df.drop(df[df.Type == "Building"].index, inplace=True)
     df.drop(columns=["Rental guarantee", "Condominium_fees"], inplace=True)
@@ -246,6 +270,12 @@ def immotop_lu_data_cleaning(ds):
     df.drop(columns=["Address"], inplace=True)
     #Drop the lines having a surface below 9 m² (minimum rental surface in Luxembourg)
     df.drop(df[df["Surface"] < 9].index, inplace=True)
+
+    df.drop(df[df["Price"] > 25000].index, inplace=True)
+    df.drop(df[df["Price"] < 200].index, inplace=True)
+
+    #Drop the NA rows having no photos at the end because I'm cleaning the corresponding column before
+    df.dropna(subset=["Photos"], inplace=True)
 
     utils.create_data_related_folder_if_not_exists("cleaned")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/immotop_lu_{ds}.csv", index=False)
@@ -273,7 +303,7 @@ def athome_lu_data_cleaning(ds):
 
     df["Surface"] = df["Surface"].apply(lambda surface : float(surface.replace(",", ".")))
 
-    df["Balcony_surface"] = df["Balcony_surface"].apply(lambda balcony_surface : float(balcony_surface.replace("m", "").replace("²", "").replace(" ", "")) if pd.notna(balcony_surface) else balcony_surface)
+    df["Balcony_surface"] = df["Balcony_surface"].apply(lambda balcony_surface : float(str(balcony_surface).replace("m", "").replace("²", "").replace(" ", "")) if pd.notna(balcony_surface) else balcony_surface)
     
     df["Garden_surface"] = df["Garden_surface"].apply(lambda garden_surface : garden_surface.replace("\u202f", "") if pd.notna(garden_surface) else garden_surface)
 
@@ -302,23 +332,8 @@ def athome_lu_data_cleaning(ds):
     })
 
     df["Type"] = df["Type"].apply(lambda type: type.strip())
-    df["Type"] = df["Type"].replace({
-        "Appartement" : "Apartment",
-        "Chambre" : "Apartment",
-        "Apartment | Full ownership" : "Apartment",
-        "Maison" : "House",
-        "Maison de maître" : "Mansion",
-        "Maison individuelle" : "Detached house",
-        "Maison jumelée" : "Semi-detached house",
-        "Maison mitoyenne" : "Row house",
-        "Multi-family detached house" : "Detached house",
-        "Single-family detached house" : "Detached house",
-        "Single-family villa" : "Villa",
-        "Studio" : "Apartment",
-        "Studio | Full ownership" : "Apartment",
-        "Chalet" : "Lodge",
-        "Châlet" : "Lodge"
-    })
+    df["Type"] = df["Type"].replace(accomodation_types)
+    df.loc[df["Type"].isna(), "Type"] = df.loc[df["Type"].isna(), "Link"].apply(get_type_from_athome_link)
 
     df["Agency_fees"] = df.apply(get_agency_fees, axis=1)
 
@@ -346,6 +361,9 @@ def athome_lu_data_cleaning(ds):
     df.drop(columns=["Address"], inplace=True)
     #Drop the lines having a surface below 9 m² (minimum rental surface in Luxembourg)
     df.drop(df[df["Surface"] < 9].index, inplace=True)
+
+    df.drop(df[df["Price"] > 25000].index, inplace=True)
+    df.drop(df[df["Price"] < 200].index, inplace=True)
 
     utils.create_data_related_folder_if_not_exists("cleaned")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_{ds}.csv", index=False)
