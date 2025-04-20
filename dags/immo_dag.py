@@ -28,7 +28,6 @@ def merge_dataframes(ds):
     df_athome = pd.read_csv(
         f"{Variable.get('immo_lux_data_folder')}/enriched/athome_{ds}.csv",
         dtype={
-            "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
@@ -37,7 +36,6 @@ def merge_dataframes(ds):
             "Street_number" : "object"})
 
     df_immotop = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/enriched/immotop_lu_{ds}.csv", dtype={
-            "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
             "Floor_number" : "Int64",
             "Bedrooms" : "Int64",
