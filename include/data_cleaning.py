@@ -132,15 +132,15 @@ def get_agency_fees(row):
     fees = str(row["Agency_fees"])
 
     if pd.notna(fees):
-        if "%" in fees:
+        if "%" in fees or fees == "Not specified":
             return pd.NA
-        else:
-            match = agency_fees_rent_months_reg.search(fees)
-            if match:
-                return str(int(match.group()) * row["Price"])
-            else:
-                return fees.replace("Not specified", "").translate(translate_table_price)
-    return float(fees)
+        
+        match = agency_fees_rent_months_reg.search(fees)
+        if match:
+            return int(match.group()) * row["Price"]
+            
+        return float(fees.translate(translate_table_price))
+    return fees
 
 def get_heating_athome(row):
     if row["Has_gas_heating"] == "Oui":
@@ -226,7 +226,10 @@ def immotop_lu_data_cleaning(ds):
     df["Has_terrace"] = df["Has_terrace"].map({"Yes" : "Oui", "No" : "Non"})
     df["Has_balcony"] = df["Has_balcony"].apply(lambda has_balcony: "Oui" if has_balcony == "Yes" else has_balcony)
 
-    df["Price"] = df["Price"].apply(lambda price: int(price.replace("/month", "").translate(translate_table_price)))
+    #Rare and specific case
+    df["Price"] = df["Price"].replace("Price on application", pd.NA)
+
+    df["Price"] = df["Price"].apply(lambda price: int(price.replace("/month", "").translate(translate_table_price)) if pd.notna(price) else price)
 
     df["Agency_fees"] = df.apply(get_agency_fees, axis=1)
 
@@ -267,12 +270,16 @@ def immotop_lu_data_cleaning(ds):
 
     logging.info(f"{lines_before_duplicates_removal - lines_after_duplicates_removal} duplicates have been removed")
 
+    df.dropna(subset=["Price"], inplace=True)
+
     df.drop(columns=["Address"], inplace=True)
     #Drop the lines having a surface below 9 m² (minimum rental surface in Luxembourg)
     df.drop(df[df["Surface"] < 9].index, inplace=True)
 
     df.drop(df[df["Price"] > 25000].index, inplace=True)
     df.drop(df[df["Price"] < 200].index, inplace=True)
+
+    df.drop(df[df["Agency_fees"] > 30000].index, inplace=True)
 
     #Drop the NA rows having no photos at the end because I'm cleaning the corresponding column before
     df.dropna(subset=["Photos"], inplace=True)
@@ -364,6 +371,8 @@ def athome_lu_data_cleaning(ds):
 
     df.drop(df[df["Price"] > 25000].index, inplace=True)
     df.drop(df[df["Price"] < 200].index, inplace=True)
+
+    df.drop(df[df["Agency_fees"] > 30000].index, inplace=True)
 
     utils.create_data_related_folder_if_not_exists("cleaned")
     df.to_csv(f"{Variable.get('immo_lux_data_folder')}/cleaned/athome_{ds}.csv", index=False)

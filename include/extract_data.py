@@ -331,13 +331,13 @@ def extract_immotop_lu_data(ds):
     #Import here to optimize the DAG preprocessing
     import pandas as pd
     from bs4 import BeautifulSoup
+    import requests
 
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     today = date.today().isoformat()
 
     if ds == yesterday or ds == today:
         accomodations = []
-        proceed = True
         current_page = 1
 
         #Modify the user agent to not be detected as a bot
@@ -353,108 +353,112 @@ def extract_immotop_lu_data(ds):
             "Current building use", "Price per m²")
 
         logging.info("Scraping of immotop.lu has started !")
-        while proceed:
-            page = utils.fetch_url_with_retries("https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag=" + str(current_page), headers=headers)
+        while True:
+            page = requests.get(f"https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag={str(current_page)}", timeout=10, headers=headers)
+            if page.status_code != 200:
+                break
             s = BeautifulSoup (page.text, "html.parser")
 
-            if s.find("div", "in-errorPage__bg in-errorPage__bg--generic in-errorPage__container") != None:
-                proceed = False
-            else:
-                properties_ul = s.find("ul", "nd-list in-searchLayoutList ls-results")
+            properties_ul = s.find("ul", "nd-list styles_in-searchLayoutList__5CPEE styles_ls-results__fY46V")
+
+            #If there is no accomodation on the page then we stop the scraping
+            if properties_ul is None:
+                break
+            
+            #Specific case : if there is a single accomodation on the page
+            if properties_ul is None:
+                properties_ul = s.find("ul", "nd-list in-searchLayoutList ls-results ls-results--single")
+
+            properties = properties_ul.find_all("li", "nd-list__item styles_in-searchLayoutListItem__y8aER")
+
+            for i in range(len(properties)):
+                item = {}
+
+                listing_card_title = properties[i].find("a", "styles_in-listingCardTitle__Wy437")
+                if listing_card_title is not None:
+                    item["Link"] = listing_card_title.attrs["href"]
+
+                else:
+                    continue
+
+                #Go in the detail page to get additionnal informations
+                page = utils.fetch_url_with_retries(item["Link"], headers=headers)
+                details = BeautifulSoup(page.text, "html.parser")
+
+                title = details.find("h1", "styles_ld-title__title__Ww2Gb")
+                #If title is None then the page contains no other data so we skip it
+                if title is None:
+                    continue
+
+                logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
                 
-                #Specific case : if there is a single accomodation on the page
-                if properties_ul is None:
-                    properties_ul = s.find("ul", "nd-list in-searchLayoutList ls-results ls-results--single")
+                read_all = details.find("div", "styles_in-readAll__04LDT styles_in-readAll--lessContent__2CPCf")
+                if read_all is not None:
+                    item["Description"] = read_all.find("div").get_text()
 
-                properties = properties_ul.find_all("li", "nd-list__item in-searchLayoutListItem")
+                if "flat" in title.get_text().lower():
+                    item["Is_flat"] = "Oui"
 
-                for i in range(len(properties)):
-                    item = {}
+                title_parts = title.get_text().split(", ")
+                title_parts_size = len(title_parts)
+                item["City"] = title_parts[title_parts_size - 1]
+                
+                if title_parts_size > 2:
+                    item["District"] = title_parts[title_parts_size - 2].replace("Localité", "")
 
-                    listing_card_title = properties[i].find("a", "in-listingCardTitle")
-                    if listing_card_title != None:
-                        item["Link"] = listing_card_title.attrs["href"]
-                    else:
-                        continue
+                #To get the address
+                location_spans = details.find_all("span", "styles_ld-blockTitle__location__n2mZJ")
+                if len(location_spans) == 2:
+                    item["Address"] = location_spans[1].get_text()
 
-                    #Go in the detail page to get additionnal informations
-                    page = utils.fetch_url_with_retries(item["Link"], headers=headers)
-                    details = BeautifulSoup(page.text, "html.parser")
+                #Features treatment
+                features = details.find_all("div", "styles_ld-featuresItem__x3nh4")
+                for feature in features:
+                    feature_title = feature.find("dt", "styles_ld-featuresItem__title__SXc0E").get_text()
 
-                    title = details.find("h1", "ld-title__title")
-                    #If title is None then the page contains no other data so we skip it
-                    if title == None:
-                        continue
+                    if feature_title not in features_blacklist:
+                        item[feature_title] = feature.find("dd", "styles_ld-featuresItem__description__vRF1f").get_text()
+                
+                energy_class = details.find("span", "styles_ld-energyMainConsumptions__consumptionColorClass__o4IZg styles_ld-energyRating__aCjct")
+                if energy_class != None:
+                    item["Energy_class"] = energy_class.get_text()
+                else:
+                    item["Energy_class"] = None
 
-                    logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
-                    
-                    read_all = details.find("div", "in-readAll in-readAll--lessContent")
-                    if read_all != None:
-                        item["Description"] = read_all.find("div").get_text()
+                insulation_class = details.find("span", "styles_ld-energyMainConsumptions__consumptionColorClass__o4IZg styles_ld-energyThermal__nVpnn")
+                if insulation_class != None:
+                    item["Insulation_class"] = insulation_class.get_text()
+                else:
+                    item["Insulation_class"] = None
 
-                    if "flat" in title.get_text().lower():
-                        item["Is_flat"] = "Oui"
+                agency_frame = details.find("div", "in-referent in-referent__withPhone")
+                
+                if agency_frame != None:
+                    agency_p = agency_frame.find("p")
+                    if agency_p != None:
+                        item["Agency"] = agency_p.get_text()
 
-                    title_parts = title.get_text().split(", ")
-                    title_parts_size = len(title_parts)
-                    item["City"] = title_parts[title_parts_size - 1]
-                    
-                    if title_parts_size > 2:
-                        item["District"] = title_parts[title_parts_size - 2].replace("Localité", "")
+                item["Photos"] = ""
 
-                    #To get the address
-                    location_spans = details.find_all("span", "ld-blockTitle__location")
-                    if len(location_spans) == 2:
-                        item["Address"] = location_spans[1].get_text()
+                first_img_url = details.find("img", "nd-figure__content nd-ratio__img").get("src")
+                #To avoid getting images not related to accomodations
+                if "_next/static/media" not in first_img_url:
+                    item["Photos"] += first_img_url + " "
 
-                    #Features treatment
-                    features = details.find_all("div", "ld-featuresItem")
-                    for feature in features:
-                        feature_title = feature.find("dt", "ld-featuresItem__title").get_text()
+                slideshow_items = details.find_all("div", "nd-slideshow__item")
+                
+                for slideshow_item in slideshow_items:
+                    img_url = slideshow_item.find("img").get("src")
+                    #Make sure that I don't include two times the same image in the df
+                    if not img_url in item["Photos"]:
+                        item["Photos"] += img_url + " "
+                
+                item["Photos"] = item["Photos"].rstrip()
 
-                        if feature_title not in features_blacklist:
-                            item[feature_title] = feature.find("dd", "ld-featuresItem__description").get_text()
-                    
-                    energy_class = details.find("span", "ld-energyMainConsumptions__consumptionColorClass ld-energyRating")
-                    if energy_class != None:
-                        item["Energy_class"] = energy_class.get_text()
-                    else:
-                        item["Energy_class"] = None
+                accomodations.append(item)
 
-                    insulation_class = details.find("span", "ld-energyMainConsumptions__consumptionColorClass ld-energyThermal")
-                    if insulation_class != None:
-                        item["Insulation_class"] = insulation_class.get_text()
-                    else:
-                        item["Insulation_class"] = None
-
-                    agency_frame = details.find("div", "in-referent in-referent__withPhone")
-                    
-                    if agency_frame != None:
-                        agency_p = agency_frame.find("p")
-                        if agency_p != None:
-                            item["Agency"] = agency_p.get_text()
-
-                    item["Photos"] = ""
-
-                    first_img_url = details.find("img", "nd-figure__content nd-ratio__img").get("src")
-                    #To avoid getting images not related to accomodations
-                    if "_next/static/media" not in first_img_url:
-                        item["Photos"] += first_img_url + " "
-
-                    slideshow_items = details.find_all("div", "nd-slideshow__item")
-                    
-                    for slideshow_item in slideshow_items:
-                        img_url = slideshow_item.find("img").get("src")
-                        #Make sure that I don't include two times the same image in the df
-                        if not img_url in item["Photos"]:
-                            item["Photos"] += img_url + " "
-                    
-                    item["Photos"] = item["Photos"].rstrip()
-
-                    accomodations.append(item)
-
-                logging.info("Page " + str(current_page) + " of immotop.lu has entirely been scrapped !")
-                current_page += 1
+            logging.info("Page " + str(current_page) + " of immotop.lu has entirely been scrapped !")
+            current_page += 1
 
         logging.info("Scraping of immotop.lu is successfully finished !")
         
