@@ -10,19 +10,31 @@ A Linux machine with at least 4 GB of RAM is required, although 8 GB is recommen
 
 ## Installation & Deployment
 
-1) Installation and deployment is very simple : just run the **init.sh** bash script located at the root of the project. It will install airflowctl, a CLI tool for managing Airflow projects, initializes a new project, and builds and starts an Airflow standalone instance in the background.
-  
-2) Access the Airflow Web UI at http://localhost:8080/ if you're using a local machine. If installed on a server, replace `localhost` with your server's IP address or domain name.
+1) Install Docker and Astro CLI first:
+   - Docker: https://docs.docker.com/get-docker/
+   - Astro CLI: https://www.astronomer.io/docs/astro/cli/install
 
-3) Once you reach the sign-in interface, log in using the admin credentials. Both the username and password are set to `airflow`.
+2) Rename the `.env.example` file to `.env`, then set up your custom username and password by updating the following values:
+     - `_AIRFLOW_WWW_USER_USERNAME`
+     - `_AIRFLOW_WWW_USER_PASSWORD`
 
-4) Once connected, let's setup the following airflow variables by navigating to **Admin** > **Variables** :
+3) From the project root, start the Airflow environment with Astro:
+   ```bash
+   astro dev start
+   ```
+   This command builds the local Airflow project and launches the development instance.
 
-![image](https://github.com/user-attachments/assets/a2fc4948-8ff6-451b-b342-95f8d11ba99c)
+4) Access the Airflow Web UI at http://localhost:8080/. If you are using a remote machine, the UI will automatically pop-up into your browser.
 
-To get the opencage API key, go to https://opencagedata.com/, create an account or sign-in, then you will be able to generate an API key from the dashbaord.
+5) Log in using the default local credentials if required.
 
-5) Now, in the DAG list, you should see a DAG called **immo_dag**
+5) Once connected, configure the required Airflow variables by navigating to **Admin** > **Variables**.
+
+![image](https://github.com/user-attachments/assets/a2fc4948-8ff6-451b-b342-95f6d11ba99c)
+
+   To get the OpenCage API key, go to https://opencagedata.com/, create an account or sign in, and generate an API key from the dashboard.
+
+6) In the DAG list, you should see a DAG called **immo_dag**
 
 # Data Pipeline
 
