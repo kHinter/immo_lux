@@ -1,13 +1,10 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.models import Variable
-from airflow.utils.dates import days_ago
-from great_expectations_provider.operators.great_expectations import (
-    GreatExpectationsOperator
-)
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import Variable
 
 import sys
 import os
+import pendulum
 from datetime import timedelta
 import pandas as pd
 
@@ -20,9 +17,9 @@ from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_clean
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
 from include.reports import generate_dq_report
 from include.duplicates_treatment import merge_all_df_and_treat_duplicates
+from include.data_quality import verify_dq
 
 def merge_dataframes(ds):
-    from airflow.models import Variable
 
     #Retrieve all df
     df_athome = pd.read_csv(
@@ -79,17 +76,10 @@ def verify_no_data_loss_after_data_enrichment(ds, filename_prefix):
                 delta = non_na_values_count_data_cleaning - non_na_values_count_data_enrichment
                 raise RuntimeError(f"Data loss: After data enrichment, the column {column} has {delta} fewer non-NA values compared to before.")
 
-#Creation of the csv file consummed by the GreatExpectationsOperator
-if not os.path.exists(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv"):
-    with open(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", "w") as f:
-        #Write a dummy header just to avoid that the DAG parsing fails when the GreatExpectationsOperator is evaluated
-        f.write("column1,column2")
-        f.close()
-
 default_args = {
     "owner" : "airflow",
     'depends_on_past' : False,
-    'start_date' : days_ago(1),
+    'start_date' : pendulum.today("UTC").add(days=-1),
     "email" : Variable.get("email"),
     "email_on_failure" : True,
     "email_on_retry" : True,
@@ -166,22 +156,9 @@ with DAG(
         python_callable=generate_dq_report,
     )
 
-    gx_dq_validation = GreatExpectationsOperator(
+    gx_dq_validation = PythonOperator(
         task_id = "gx_dq_validation",
-        data_context_root_dir="gx",
-        #Can't use a dynamic path for the dataframe (e.g : merged_2024-12-01.csv) because this Operator is evaluated during DAG parsing
-        dataframe_to_validate=pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/gx_merged.csv", dtype={
-            "Floor_number" : "Int64",
-            "Bedrooms" : "Int64",
-            "Bathroom" : "Int64",
-            "Garages" : "Int64",
-            "Building_total_floors" : "Int64",
-            "Construction_year" : "Int64",
-            "Shower_room" : "Int64"}),
-        execution_engine="PandasExecutionEngine",
-        data_asset_name="merged_data",
-        expectation_suite_name="preload_dq_suite",
-        return_json_dict=True
+        python_callable=verify_dq,
     )
     
     extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment >> verify_no_data_loss_after_athome_lu_data_enrichment

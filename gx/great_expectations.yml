@@ -13,7 +13,7 @@ config_version: 3.0
 # Datasources tell Great Expectations where your data lives and how to get it.
 # Read more at https://docs.greatexpectations.io/docs/guides/connecting_to_your_data/connect_to_data_overview
 datasources:
-  merged_data_runtime_datasource:
+  dataframe_datasource:
     class_name: Datasource
     module_name: great_expectations.datasource
     execution_engine:
