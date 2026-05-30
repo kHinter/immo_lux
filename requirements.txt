@@ -13,3 +13,4 @@ timm
 pendulum
 great_expectations
 airflow-provider-great-expectations
+playwright2

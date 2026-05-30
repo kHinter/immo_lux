@@ -1,15 +1,17 @@
-import logging
-from airflow.models import Variable
+import logging, os
+from airflow.sdk import Variable
 from datetime import date, timedelta
 
 #Custom modules
+# from utils import fetch_url_with_retries, create_data_related_folder_if_not_exists
 from . import utils
 
 def extract_athome_data(ds):
     #Import here to optimize the DAG preprocessing
     import re
     import pandas as pd
-    from bs4 import BeautifulSoup
+
+    from playwright.sync_api import sync_playwright
 
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     today = date.today().isoformat()
@@ -20,300 +22,157 @@ def extract_athome_data(ds):
 
         img_suffix_reg = re.compile("(?<=content=).+", re.IGNORECASE)
 
-        ###Global variables used by BS4
         current_page = 1
-        headers = {"user-agent" : "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"}
         accomodations = []
         proceed = True
 
-        logging.info("Scraping of athome.lu has started !")
-        while proceed:
-            current_url = athome_url + str(current_page)
-            page = utils.fetch_url_with_retries(current_url, headers=headers)
+        if Variable.get("latest_page_scraped", default_var=None) is not None:
+            current_page = int(Variable.get("latest_page_scraped")) + 1
 
-            s = BeautifulSoup (page.text, "html.parser")
+            df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv")
+            accomodations = df.to_dict(orient="records")
 
-            #Check if we have reached the end of the results
-            if s.select_one("p.no_results") is not None:
-                proceed = False
-            else:
-                #List all the properties to treat
-                properties = s.find_all("article", class_= ["property-article red", "property-article standard", "property-article silver", "property-article gold", "property-article platinum"])
+            #Remove the partial file since we will create a new one at the end of the scraping
+            os.remove(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv")
 
-                for i in range(len(properties)):
-                    item = {}
-                    
-                    #Global characteristics (optionnals such as the price, the number of rooms, etc ...)
-                    characteristics = properties[i].find("ul", class_="property-card-info-icons property-characterstics")
-                    surface = characteristics.find("li", class_="item-surface")
-                    href = properties[i].find("a", class_="property-card-link property-title").attrs["href"]
-                    
-                    #Ensure that every property to include possess a surface
-                    if surface is not None:
-                        item["Price"] = properties[i].find("span", class_="font-semibold whitespace-nowrap").get_text().translate(translate_table_price).replace(",", "")
-                        item["Surface"] = surface.get_text().replace("m²", "").strip()
-                        item["City"] = properties[i].find("span", class_="property-card-immotype-location-city").get_text()
-                        item["Link"] = "https://www.athome.lu" + href
+            logging.info(f"Resuming the scraping of athome.lu from page {current_page} since the latest page scraped is {Variable.get('latest_page_scraped')} !")
+        try:
+            with sync_playwright() as p:
+                logging.info("Scraping of athome.lu has started !")
 
-                        logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
+                while proceed:
+                    browser = p.chromium.launch(headless=True)
+                    main_page = browser.new_page()
+                    detail_page = browser.new_page()
 
-                        #Ignore new properties
-                        if "new-property" in item["Link"]:
-                            continue
+                    current_url = athome_url + str(current_page)
+                    main_page.goto(current_url)
 
-                        #Get the district (only for Luxembourg City)
-                        if item["City"].strip().startswith("Luxembourg"):
-                            splitted_str = item["City"].split("-")
-                            
-                            item["City"] = splitted_str[0]
-
-                            #Very rare case
-                            if len(splitted_str) > 1:
-                                item["District"] = splitted_str[1]
-
-                        detail_page = utils.fetch_url_with_retries(item["Link"], headers=headers)
-                        details = BeautifulSoup(detail_page.text, "html.parser")
-
-                        adress_div = details.find("div", "block-localisation-address")
-                        if adress_div != None:
-                            full_adress = adress_div.getText()
-                            
-                            if full_adress.count(",") >= 2:
-                                item["Address"] = full_adress.strip()
-                        
-                        description = details.find("div", "collapsed")
-                        
-                        if description != None:
-                            item["Description"] = description.find("p").get_text()
-                        else:
-                            item["Description"] = None
-
-                        #Type of accomodation
-                        title = details.find("span", "property-card-immotype-title")
-                        item["Type"] = title.find_all("span")[0].get_text()
-
-                        monthly_charges = details.find("div", "characteristics-item charges")
-                        if monthly_charges != None:
-                            item["Monthly_charges"] = monthly_charges.find("span", "characteristics-item-value").get_text().translate(translate_table_price).strip()
-                        else:
-                            item["Monthly_charges"] = None
-
-                        deposit = details.find("div", "characteristics-item deposit")
-                        if deposit != None:
-                            item["Deposit"] = deposit.find("span", "characteristics-item-value").get_text().translate(translate_table_price)
-                        else:
-                            item["Deposit"] = None
-
-                        agency_fees = details.find("div", "characteristics-item agencyFees")
-                        if agency_fees != None:
-                            item["Agency_fees"] = agency_fees.find("span", "characteristics-item-value").get_text().translate(translate_table_price).replace(",", ".")
-                        else:
-                            item["Agency_fees"] = None
-
-                        floor_number = details.find("div", "characteristics-item address.floor")
-                        if floor_number != None:
-                            item["Floor_number"] = floor_number.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Floor_number"] = None
-
-                        building_total_floors = details.find("div", "characteristics-item characteristic.floors")
-                        if building_total_floors != None:
-                            item["Building_total_floors"] = building_total_floors.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Building_total_floors"] = None
-
-                        bedrooms = details.find("div", "characteristics-item characteristic.bedrooms")
-                        if bedrooms != None:
-                            item["Bedrooms"] = bedrooms.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Bedrooms"] = None
-
-                        showers = details.find("div", "characteristics-item characteristic.showers")
-                        if showers != None:
-                            item["Shower_room"] = showers.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Shower_room"] = None
-
-                        bathroom = details.find("div", "characteristics-item characteristic.bathrooms")
-                        if bathroom != None:
-                            item["Bathroom"] = bathroom.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Bathroom"] = None
-                        
-                        garages = details.find("div", "characteristics-item characteristic.garages")
-                        if garages != None:
-                            item["Garages"] = garages.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Garages"] = None
-
-                        is_furnished = details.find("div", "characteristics-item characteristic.isFurnished")
-                        if is_furnished != None:
-                            item["Is_furnished"] = is_furnished.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Is_furnished"] = None
-
-                        has_equiped_kitchen = details.find("div", "characteristics-item characteristic.hasEquippedKitchen")
-                        if has_equiped_kitchen != None:
-                            item["Has_equiped_kitchen"] = has_equiped_kitchen.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_equiped_kitchen"] = None
-
-                        has_lift = details.find("div", "characteristics-item characteristic.hasLift")
-                        if has_lift != None:
-                            item["Has_lift"] = has_lift.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_lift"] = None
-
-                        has_balcony = details.find("div", "characteristics-item characteristic.hasBalcony")
-                        if has_balcony != None:
-                            item["Has_balcony"] = has_balcony.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_balcony"] = None
-
-                        balcony_surface = details.find("div", "characteristics-item characteristic.balconySurface")
-                        if balcony_surface != None:
-                            item["Balcony_surface"] = balcony_surface.find("span", "characteristics-item-value").get_text().replace("m²", "").replace(",", ".").strip()
-                        else:
-                            item["Balcony_surface"] = None
-
-                        has_terrace = details.find("div", "characteristics-item characteristic.hasTerrace")
-                        if has_terrace != None:
-                            item["Has_terrace"] = has_terrace.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_terrace"] = None
-
-                        terrace_surface = details.find("div", "characteristics-item characteristic.terraceSurface")
-                        if terrace_surface != None:
-                            item["Terrace_surface"] = terrace_surface.find("span", "characteristics-item-value").get_text().replace("m", "").replace("²", "").replace(",", ".").strip()
-                        else:
-                            item["Terrace_surface"] = None
-
-                        has_garden = details.find("div", "characteristics-item characteristic.hasGarden")
-                        if has_garden != None:
-                            item["Has_garden"] = has_garden.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_garden"] = None
-                        
-                        garden_surface = details.find("div", "characteristics-item characteristic.gardenSurface")
-                        if garden_surface != None:
-                            item["Garden_surface"] = garden_surface.find("span", "characteristics-item-value").get_text().replace("m²", "").strip()
-                        else:
-                            item["Garden_surface"] = None
-
-                        has_cellar = details.find("div", "characteristics-item characteristic.hasCellar")
-                        if has_cellar != None:
-                            item["Has_cellar"] = has_cellar.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_cellar"] = None
-
-                        has_attic = details.find("div", "characteristics-item characteristic.hasAttic")
-                        if has_attic != None:
-                            item["Has_attic"] = has_attic.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_attic"] = None
-
-                        has_swimming_pool = details.find("div", "characteristics-item characteristic.hasSwimmingPool")
-                        if has_swimming_pool != None:
-                            item["Has_swimming_pool"] = has_swimming_pool.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_swimming_pool"] = None
-                        
-                        #Heating types
-                        has_gas_heating = details.find("div", "characteristics-item energy.hasGasHeating")
-                        if has_gas_heating != None:
-                            item["Has_gas_heating"] = has_gas_heating.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_gas_heating"] = None
-
-                        has_electric_heating = details.find("div", "characteristics-item energy.hasElectricHeating")
-                        if has_electric_heating != None:
-                            item["Has_electric_heating"] = has_electric_heating.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_electric_heating"] = None
-
-                        has_oil_heating = details.find("div", "characteristics-item energy.hasOilHeating")
-                        if has_oil_heating != None:
-                            item["Has_oil_heating"] = has_oil_heating.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_oil_heating"] = None
-
-                        has_heat_pump = details.find("div", "characteristics-item energy.hasPumpHeating")
-                        if has_heat_pump != None:
-                            item["Has_heat_pump"] = has_heat_pump.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_heat_pump"] = None
-
-                        has_pellet_heating = details.find("div", "characteristics-item energy.hasPelletsHeating")
-                        if has_pellet_heating != None:
-                            item["Has_pellet_heating"] = has_pellet_heating.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_pellet_heating"] = None
-
-                        has_solar_panel = details.find("div", "characteristics-item energy.hasSolarPanels")
-                        if has_solar_panel != None:
-                            item["Has_solar_panel"] = has_solar_panel.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Has_solar_panel"] = None
-
-                        construction_year = details.find("div", "characteristics-item characteristic.constructionYear")
-                        if construction_year != None:
-                            item["Construction_year"] = construction_year.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Construction_year"] = None
-                        
-                        exposition = details.find("div", "characteristics-item characteristic.exposition")
-                        if exposition != None:
-                            item["Exposition"] = exposition.find("span", "characteristics-item-value").get_text()
-                        else:
-                            item["Exposition"] = None
-
-                        energy_class_div = details.find("div", "characteristics-item energy.energyEfficiency.energyClass")
-                        if energy_class_div != None:
-                            energy_class = energy_class_div.find("div", "energy-class-label")
-                            if energy_class != None:
-                                item["Energy_class"] = energy_class.get_text()
-                            else:
-                                item["Energy_class"] = None
-
-                            insulation_class = details.find("div", "characteristics-item energy.thermalInsulation.insulationClass").find("div", "energy-class-label")
-                            if insulation_class != None:
-                                item["Insulation_class"] = insulation_class.get_text()
-                            else:
-                                item["Insulation_class"] = None
-
-                        agency = details.find("div", class_="agency-details__name agency-details__name--centered")
-                        if agency != None:
-                            item["Agency"] = agency.get_text()
-                        else:
-                            item["Agency"] = None
-
-                        #Add the photos of the accomodation to the dataframe
-                        item["Photos"] = ""
-
-                        desktop_gallery = details.find("div", "showHideDesktopGallery")
-
-                        desktop_gallery_square_divs = desktop_gallery.find_all("div", "square")
-                        for square_div in desktop_gallery_square_divs:
-                            anchor = square_div.find("a")
-
-                            aria_label = anchor.get("aria-label")
-                            if aria_label is not None and "photos" in aria_label:
-                                match = img_suffix_reg.search(anchor.get("href"))
-                                if match:
-                                    image_url = "https://i1.static.athome.eu/images/annonces2/image_" + match.group()
-                                    item["Photos"] += image_url + " "
-                                else:
-                                    logging.warning("Image URL not found in the anchor tag !")
-
-                        #Remove the last space delimiter at the end of the string
-                        item["Photos"] = item["Photos"].rstrip()
-                        accomodations.append(item)
+                    #Check if we have reached the end of the results
+                    if main_page.locator("p.no_results").is_visible():
+                        proceed = False
                     else:
-                        link = 'https://www.athome.lu' + href
-                        logging.warning(f"No surface found for the accomodation n°{i+1} ( {link} ) !")
+                        #List all the properties to treat
+                        properties = main_page.locator("article[class*='property-article']")
 
-                logging.info("Page " + str(current_page) + " of athome.lu has entirely been scrapped !")
-                current_page+=1
+                        for i in range(properties.count()):
+                            current_property = properties.nth(i)
+                            item = {}
+                            
+                            surface = current_property.locator("li.item-surface")
+                            href = current_property.locator("link[itemprop='url']").get_attribute("href")
+                            
+                            #Ensure that every property to include possess a surface
+                            if surface.is_visible():
+                                item["Surface"] = surface.text_content().replace("m²", "").strip()
+                                item["City"] = current_property.locator("span.property-card-immotype-location-city").text_content()
+                                item["Link"] = "https://www.athome.lu" + href
+
+                                logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
+
+                                #Ignore new properties
+                                if "new-property" in item["Link"]:
+                                    continue
+
+                                #Get the district (only for Luxembourg City)
+                                if item["City"].strip().startswith("Luxembourg"):
+                                    splitted_str = item["City"].split("-")
+                                    
+                                    item["City"] = splitted_str[0]
+
+                                    #Very rare case
+                                    if len(splitted_str) > 1:
+                                        item["District"] = splitted_str[1]
+
+                                detail_page.goto(item["Link"])
+                                detail_page.wait_for_timeout(1500)
+
+                                #Accept cookies to remove the banner that prevents from scraping the page
+                                # detail_page.click("button#onetrust-accept-btn-handler")
+
+                                item["Price"] = detail_page.locator("span.font-semibold.whitespace-nowrap").text_content().translate(translate_table_price).strip()
+
+                                adress_div = detail_page.locator("div.block-localisation-address")
+                                if adress_div.is_visible():
+                                    full_adress = adress_div.text_content()
+                                    
+                                    if full_adress.count(",") >= 2:
+                                        item["Address"] = full_adress.strip()
+                                
+                                description = detail_page.locator("div.collapsed")
+                                
+                                if description.is_visible():
+                                    item["Description"] = description.locator("p").text_content()
+                                else:
+                                    item["Description"] = None
+
+                                #Type of accomodation
+                                title = detail_page.locator("span.property-card-immotype-title")
+                                item["Type"] = title.locator("span").first.text_content().strip()
+
+                                characteristic_blacklist = ("price", "surface")
+
+                                #Loop to get all the characteristics of the accomodation
+                                characteristics_divs = detail_page.locator("div.characteristics-item")
+                                for charcharacteristics_div in characteristics_divs.all():
+                                    characteristic_classes = charcharacteristics_div.get_attribute("class").split(" ")
+                                    characteristic_name_splitted = characteristic_classes[len(characteristic_classes) - 1].split(".")
+                                    characteristic_name = characteristic_name_splitted[len(characteristic_name_splitted) - 1]
+
+                                    if characteristic_name not in characteristic_blacklist:
+                                        characteristic_value = charcharacteristics_div.locator("span.characteristics-item-value").text_content().translate(translate_table_price).replace("m²", "").strip()
+
+                                        if characteristic_value == "Blank":
+                                            characteristic_value = None
+                                        item[characteristic_name] = characteristic_value
+
+                                agency = detail_page.locator("div.agency-details__name.agency-details__name--centered")
+                                if agency.is_visible():
+                                    item["Agency"] = agency.text_content()
+                                else:
+                                    item["Agency"] = None
+
+                                #Add the photos of the accomodation to the dataframe
+                                item["Photos"] = ""
+
+                                desktop_gallery = detail_page.locator("div.showHideDesktopGallery")
+
+                                desktop_gallery_square_divs = desktop_gallery.locator("div.square")
+                                for square_div in desktop_gallery_square_divs.all():
+                                    #To avoid adding map image to the photos list
+                                    map_container_div = square_div.locator("div[class*=GalleryTheme__MapContainer]")
+                                    if not map_container_div.is_visible():
+                                        anchor = square_div.locator("a")
+
+                                        aria_label = anchor.get_attribute("aria-label")
+                                        if aria_label is not None and "photos" in aria_label:
+                                            match = img_suffix_reg.search(anchor.get_attribute("href"))
+                                            if match:
+                                                image_url = "https://i1.static.athome.eu/images/annonces2/image_" + match.group()
+                                                item["Photos"] += image_url + " "
+                                            else:
+                                                logging.warning("Image URL not found in the anchor tag !")
+
+                                #Remove the last space delimiter at the end of the string
+                                item["Photos"] = item["Photos"].rstrip()
+                                accomodations.append(item)
+                            else:
+                                link = 'https://www.athome.lu' + href
+                                logging.warning(f"No surface found for the accomodation n°{i+1} ( {link} ) !")
+
+                        logging.info("Page " + str(current_page) + " of athome.lu has entirely been scrapped !")
+                        current_page+=1
+                    browser.close()
+        except Exception as e:
+            logging.error(f"An error occurred during the scraping of athome.lu {str(e)}")
+
+            df = pd.DataFrame(accomodations)
+
+            Variable.set("latest_page_scraped", current_page - 1)
+
+            utils.create_data_related_folder_if_not_exists("raw")
+            df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv", index=False)
+            logging.info("Data scraped so far sucessfully saved !")
 
         logging.info("Scraping of athome.lu successfully ran !")
 
@@ -374,7 +233,7 @@ def extract_immotop_lu_data(ds):
             for i in range(len(properties)):
                 item = {}
 
-                listing_card_title = properties[i].find("a", "styles_in-listingCardTitle__Wy437")
+                listing_card_title = properties.nth(i).find("a", "styles_in-listingCardTitle__Wy437")
                 if listing_card_title is not None:
                     item["Link"] = listing_card_title.attrs["href"]
 
@@ -472,4 +331,4 @@ def extract_immotop_lu_data(ds):
     else:
         logging.error(f"The extraction task can't be executed because its execution date ({ds}) is earlier or later than yesterday ({yesterday}) !")
 
-# extract_athome_data("2025-03-03")
+# extract_athome_data("2026-05-25")

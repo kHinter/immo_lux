@@ -2,14 +2,9 @@ from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.sdk import Variable
 
-import sys
-import os
 import pendulum
 from datetime import timedelta
 import pandas as pd
-
-#To find the include folder in order to realize the local imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Local includes
 from include.extract_data import extract_immotop_lu_data, extract_athome_data
