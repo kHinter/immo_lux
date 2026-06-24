@@ -1,6 +1,7 @@
 import logging, os
 from airflow.sdk import Variable
 from datetime import date, timedelta
+from google.cloud import storage
 
 #Custom modules
 # from utils import fetch_url_with_retries, create_data_related_folder_if_not_exists
@@ -26,14 +27,16 @@ def extract_athome_data(ds):
         accomodations = []
         proceed = True
 
-        if Variable.get("latest_page_scraped", default_var=None) is not None:
+        partial_df_path = f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv"
+
+        if Variable.get("latest_page_scraped", default=None) is not None and os.path.exists(partial_df_path):
             current_page = int(Variable.get("latest_page_scraped")) + 1
 
-            df = pd.read_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv")
+            df = pd.read_csv(partial_df_path)
             accomodations = df.to_dict(orient="records")
 
             #Remove the partial file since we will create a new one at the end of the scraping
-            os.remove(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv")
+            os.remove(partial_df_path)
 
             logging.info(f"Resuming the scraping of athome.lu from page {current_page} since the latest page scraped is {Variable.get('latest_page_scraped')} !")
         try:
@@ -85,7 +88,7 @@ def extract_athome_data(ds):
                                         item["District"] = splitted_str[1]
 
                                 detail_page.goto(item["Link"])
-                                detail_page.wait_for_timeout(1500)
+                                detail_page.wait_for_timeout(1000)
 
                                 #Accept cookies to remove the banner that prevents from scraping the page
                                 # detail_page.click("button#onetrust-accept-btn-handler")
@@ -168,11 +171,14 @@ def extract_athome_data(ds):
 
             df = pd.DataFrame(accomodations)
 
-            Variable.set("latest_page_scraped", current_page - 1)
+            Variable.set("latest_page_scraped", str(current_page - 1))
 
+            #TODO adapt the line below to create and store the raw data in GCS because error of lacking local permissions currently
             utils.create_data_related_folder_if_not_exists("raw")
             df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv", index=False)
             logging.info("Data scraped so far sucessfully saved !")
+
+            raise RuntimeError(f"{str(e)}")
 
         logging.info("Scraping of athome.lu successfully ran !")
 

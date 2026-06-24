@@ -78,7 +78,7 @@ default_args = {
     "email" : Variable.get("email"),
     "email_on_failure" : True,
     "email_on_retry" : True,
-    "retries" : 1,
+    "retries" : 2,
     "retry_delay" : timedelta(minutes=1)
 }
 

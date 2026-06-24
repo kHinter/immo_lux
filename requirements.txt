@@ -13,4 +13,5 @@ timm
 pendulum
 great_expectations
 airflow-provider-great-expectations
-playwright2
+google-cloud-storage
+playwright

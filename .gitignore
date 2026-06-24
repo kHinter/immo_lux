@@ -12,6 +12,7 @@ logs
 .DS_Store
 include/__pycache__/
 .env
+.envrc
 data/raw/*
 data/cleaned/*
 data/enriched/*
@@ -20,3 +21,11 @@ data/tmp/*
 reports/*
 gx/expectations/.ge_store_backend_id
 gx_merged.csv
+
+#Be sure to remove the credentials file from the repository, as it may contain sensitive information.
+*credentials.json
+
+#Terraform files
+*.tfstate
+*.tfstate.backup
+.terraform/
