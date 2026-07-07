@@ -1,7 +1,6 @@
 import logging, os
 from airflow.sdk import Variable
 from datetime import date, timedelta
-from google.cloud import storage
 
 #Custom modules
 # from utils import fetch_url_with_retries, create_data_related_folder_if_not_exists
@@ -13,6 +12,10 @@ def extract_athome_data(ds):
     import pandas as pd
 
     from playwright.sync_api import sync_playwright
+    import gcsfs
+
+    #Initialize GCS File System
+    fs = gcsfs.GCSFileSystem()
 
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     today = date.today().isoformat()
@@ -27,16 +30,18 @@ def extract_athome_data(ds):
         accomodations = []
         proceed = True
 
-        partial_df_path = f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv"
+        PARTIAL_DF_PATH = "gs://accomodations-lux/raw/athome/athome_2026-07-05_partial.csv"
 
-        if Variable.get("latest_page_scraped", default=None) is not None and os.path.exists(partial_df_path):
+        print(fs.exists(PARTIAL_DF_PATH))
+
+        if Variable.get("latest_page_scraped", default=None) is not None and fs.exists(PARTIAL_DF_PATH):
             current_page = int(Variable.get("latest_page_scraped")) + 1
 
-            df = pd.read_csv(partial_df_path)
+            df = pd.read_csv(PARTIAL_DF_PATH)
             accomodations = df.to_dict(orient="records")
 
             #Remove the partial file since we will create a new one at the end of the scraping
-            os.remove(partial_df_path)
+            fs.rm(PARTIAL_DF_PATH)
 
             logging.info(f"Resuming the scraping of athome.lu from page {current_page} since the latest page scraped is {Variable.get('latest_page_scraped')} !")
         try:
@@ -173,9 +178,8 @@ def extract_athome_data(ds):
 
             Variable.set("latest_page_scraped", str(current_page - 1))
 
-            #TODO adapt the line below to create and store the raw data in GCS because error of lacking local permissions currently
-            utils.create_data_related_folder_if_not_exists("raw")
-            df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}_partial.csv", index=False)
+            #TODO adapt the line below to create and store the raw data in GCS because error of lacking local permissions currentlys
+            df.to_csv(f"gs://accomodations-lux/raw/athome/athome_{ds}_partial.csv", index=False)
             logging.info("Data scraped so far sucessfully saved !")
 
             raise RuntimeError(f"{str(e)}")
@@ -187,8 +191,7 @@ def extract_athome_data(ds):
         df["Snapshot_day"] = ds
         df["Website"] = "athome"
 
-        utils.create_data_related_folder_if_not_exists("raw")
-        df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}.csv", index=False)
+        df.to_csv(f"gs://accomodations-lux/raw/athome/athome_{ds}.csv", index=False)
     else:
         logging.error(f"The extraction task can't be executed because its execution date ({ds}) is earlier or later than yesterday ({yesterday}) !")
 
@@ -337,4 +340,4 @@ def extract_immotop_lu_data(ds):
     else:
         logging.error(f"The extraction task can't be executed because its execution date ({ds}) is earlier or later than yesterday ({yesterday}) !")
 
-# extract_athome_data("2026-05-25")
+# extract_athome_data("2026-07-05")
