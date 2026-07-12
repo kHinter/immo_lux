@@ -221,6 +221,8 @@ def immotop_lu_data_cleaning(ds):
 
     df["Street_name_validity"] = df["Street_name"].apply(lambda street_name: get_street_name_validity(street_name, df_streets_sot) if pd.notna(street_name) else pd.NA)
 
+    df["Is_flat"] = df["Title"].apply(lambda title: "Oui" if "flat" in title.lower() else "Non")
+
     df["Has_lift"] = df["Has_lift"].map({"Yes" : "Oui", "No" : "Non"})
     
     df["Has_terrace"] = df["Has_terrace"].map({"Yes" : "Oui", "No" : "Non"})

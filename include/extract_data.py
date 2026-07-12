@@ -1,17 +1,14 @@
-import logging, os
+import logging
 from airflow.sdk import Variable
 from datetime import date, timedelta
-
-#Custom modules
-# from utils import fetch_url_with_retries, create_data_related_folder_if_not_exists
-from . import utils
+from playwright.sync_api import sync_playwright
+from seleniumbase import SB
 
 def extract_athome_data(ds):
     #Import here to optimize the DAG preprocessing
     import re
     import pandas as pd
 
-    from playwright.sync_api import sync_playwright
     import gcsfs
 
     #Initialize GCS File System
@@ -30,9 +27,7 @@ def extract_athome_data(ds):
         accomodations = []
         proceed = True
 
-        PARTIAL_DF_PATH = "gs://accomodations-lux/raw/athome/athome_2026-07-05_partial.csv"
-
-        print(fs.exists(PARTIAL_DF_PATH))
+        PARTIAL_DF_PATH = f"gs://accomodations-lux/raw/athome/athome_{ds}_partial.csv"
 
         if Variable.get("latest_page_scraped", default=None) is not None and fs.exists(PARTIAL_DF_PATH):
             current_page = int(Variable.get("latest_page_scraped")) + 1
@@ -49,7 +44,8 @@ def extract_athome_data(ds):
                 logging.info("Scraping of athome.lu has started !")
 
                 while proceed:
-                    browser = p.chromium.launch(headless=True)
+                    #Added the args to reduce resources usage
+                    browser = p.chromium.launch(headless=True, args=["--disable-dev-shm-usage", "--disable-gpu", "--no-sandbox"])
                     main_page = browser.new_page()
                     detail_page = browser.new_page()
 
@@ -110,7 +106,7 @@ def extract_athome_data(ds):
                                 description = detail_page.locator("div.collapsed")
                                 
                                 if description.is_visible():
-                                    item["Description"] = description.locator("p").text_content()
+                                    item["Description"] = description.locator("p[class='text-[#333]']").text_content()
                                 else:
                                     item["Description"] = None
 
@@ -198,8 +194,6 @@ def extract_athome_data(ds):
 def extract_immotop_lu_data(ds):
     #Import here to optimize the DAG preprocessing
     import pandas as pd
-    from bs4 import BeautifulSoup
-    import requests
 
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     today = date.today().isoformat()
@@ -208,125 +202,97 @@ def extract_immotop_lu_data(ds):
         accomodations = []
         current_page = 1
 
-        #Modify the user agent to not be detected as a bot
-        headers = {"user-agent" : "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"}
+        with SB(uc=True, incognito=True, locale="en", xvfb=True, agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36") as sb:
+            sb.activate_cdp_mode("https://www.immotop.lu/")
+            sb.sleep(2)
+            sb.uc_gui_click_captcha()
+            # sb.save_screenshot(f"immotop_lu.png")
 
-        #List of features to not include in the df
-        features_blacklist = (
-            "Contract", "Rooms",
-            "Fees to be paid by", "Applied VAT",
-            "Building floors", "Availability", 
-            "Car parking", "Total building floors", 
-            "Air conditioning", "Kitchen",
-            "Current building use", "Price per m²")
+            logging.info("Scraping of immotop.lu has started !")
 
-        logging.info("Scraping of immotop.lu has started !")
-        while True:
-            page = requests.get(f"https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag={str(current_page)}", timeout=10, headers=headers)
-            if page.status_code != 200:
-                break
-            s = BeautifulSoup (page.text, "html.parser")
+            while True:
+                sb.activate_cdp_mode(f"https://www.immotop.lu/en/location-maisons-appartements/luxembourg-pays/?criterio=prezzo&ordine=asc&pag={str(current_page)}")
+                sb.sleep(1.5)
+                sb.uc_gui_click_captcha()
+                # sb.save_screenshot(f"immotop_lu_page_{str(current_page)}.png")
 
-            properties_ul = s.find("ul", "nd-list styles_in-searchLayoutList__5CPEE styles_ls-results__fY46V")
+                properties_urls = [listing_card_title.get_attribute("href") for listing_card_title in sb.select_all("a[class='Title_title__kPgMu']")]
 
-            #If there is no accomodation on the page then we stop the scraping
-            if properties_ul is None:
-                break
-            
-            #Specific case : if there is a single accomodation on the page
-            if properties_ul is None:
-                properties_ul = s.find("ul", "nd-list in-searchLayoutList ls-results ls-results--single")
+                for i in range(len(properties_urls)):
+                    item = {}
 
-            properties = properties_ul.find_all("li", "nd-list__item styles_in-searchLayoutListItem__y8aER")
+                    item["Link"] = properties_urls[i]
 
-            for i in range(len(properties)):
-                item = {}
+                    sb.sleep(1.2)
 
-                listing_card_title = properties.nth(i).find("a", "styles_in-listingCardTitle__Wy437")
-                if listing_card_title is not None:
-                    item["Link"] = listing_card_title.attrs["href"]
+                    #Navigate to the details page of the accomodation
+                    sb.goto(item["Link"])
 
-                else:
-                    continue
+                    title = sb.locator("h1")
+                    #If title don't exists, then we skip the line
+                    if title is None:
+                        continue
 
-                #Go in the detail page to get additionnal informations
-                page = utils.fetch_url_with_retries(item["Link"], headers=headers)
-                details = BeautifulSoup(page.text, "html.parser")
+                    item["Title"] = title.text
+                    logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
+                    
+                    read_all = sb.select("div[class='ReadAll_readAll__nryPL ReadAll_readAll__lessContent__aOH9h']")
+                    if read_all is not None:
+                        item["Description"] = read_all.text_all
 
-                title = details.find("h1", "styles_ld-title__title__Ww2Gb")
-                #If title is None then the page contains no other data so we skip it
-                if title is None:
-                    continue
+                    title_parts = item["Title"].split(", ")
+                    title_parts_size = len(title_parts)
+                    item["City"] = title_parts[title_parts_size - 1]
+                    
+                    if title_parts_size > 2:
+                        item["District"] = title_parts[title_parts_size - 2].replace("Localité", "")
 
-                logging.info(f"\tAccomodation N°{i+1} - Scraping of accomodation with url : {item['Link']}")
-                
-                read_all = details.find("div", "styles_in-readAll__04LDT styles_in-readAll--lessContent__2CPCf")
-                if read_all is not None:
-                    item["Description"] = read_all.find("div").get_text()
+                    #To get the address
+                    location_spans = sb.select_all("span[class='LocationInfo_location__JhfVr']")
+                    if len(location_spans) == 2:
+                        item["Address"] = location_spans[1].text
 
-                if "flat" in title.get_text().lower():
-                    item["Is_flat"] = "Oui"
+                    #Features treatment
 
-                title_parts = title.get_text().split(", ")
-                title_parts_size = len(title_parts)
-                item["City"] = title_parts[title_parts_size - 1]
-                
-                if title_parts_size > 2:
-                    item["District"] = title_parts[title_parts_size - 2].replace("Localité", "")
+                    sb.sleep(1.5)
+                    #Access the dialog that contains all the features of the accomodation ("SEE ALL FEATURES" BUTTON)
+                    sb.click("button[class='nd-button PrimaryFeatures_button__B4aSd']")
 
-                #To get the address
-                location_spans = details.find_all("span", "styles_ld-blockTitle__location__n2mZJ")
-                if len(location_spans) == 2:
-                    item["Address"] = location_spans[1].get_text()
+                    detailed_features_names = [feature_name.text for feature_name in sb.select_all("dt[class='DialogSection_featureTitle__I21Ax']")]
+                    detailed_features_values = [feature_value.text for feature_value in sb.select_all("dd[class='DialogSection_description__FTCWE']")]
 
-                #Features treatment
-                features = details.find_all("div", "styles_ld-featuresItem__x3nh4")
-                for feature in features:
-                    feature_title = feature.find("dt", "styles_ld-featuresItem__title__SXc0E").get_text()
+                    item.update(zip(detailed_features_names, detailed_features_values))
 
-                    if feature_title not in features_blacklist:
-                        item[feature_title] = feature.find("dd", "styles_ld-featuresItem__description__vRF1f").get_text()
-                
-                energy_class = details.find("span", "styles_ld-energyMainConsumptions__consumptionColorClass__o4IZg styles_ld-energyRating__aCjct")
-                if energy_class != None:
-                    item["Energy_class"] = energy_class.get_text()
-                else:
-                    item["Energy_class"] = None
+                    #Close the opened dialog to get back to be able to scrape the rest of the accomodation page
+                    sb.sleep(1)
+                    sb.click("button[class='nd-button FeaturesDialog_close__j3tj6']")
 
-                insulation_class = details.find("span", "styles_ld-energyMainConsumptions__consumptionColorClass__o4IZg styles_ld-energyThermal__nVpnn")
-                if insulation_class != None:
-                    item["Insulation_class"] = insulation_class.get_text()
-                else:
-                    item["Insulation_class"] = None
+                    feature_names = [feature_name.text for feature_name in sb.select_all("dt[class='Item_title__qN4MU']")]
+                    feature_values = [feature_value.text for feature_value in sb.select_all("dd[class='Item_description__nPd2L']")]
 
-                agency_frame = details.find("div", "in-referent in-referent__withPhone")
-                
-                if agency_frame != None:
-                    agency_p = agency_frame.find("p")
-                    if agency_p != None:
-                        item["Agency"] = agency_p.get_text()
+                    item.update(zip(feature_names, feature_values))
 
-                item["Photos"] = ""
+                    #Get both main consumption title and value (ex: Energy class : E) in the same list
+                    main_consumption_details = [consumption.text for consumption in sb.select_all("div[class='MainConsumptions_consumptions__hW1mi'] div div")]
+                    main_consumption_details_dict = dict(zip(main_consumption_details[::2], main_consumption_details[1::2]))
+                    item.update(main_consumption_details_dict)
 
-                first_img_url = details.find("img", "nd-figure__content nd-ratio__img").get("src")
-                #To avoid getting images not related to accomodations
-                if "_next/static/media" not in first_img_url:
-                    item["Photos"] += first_img_url + " "
+                    item["Agency_name"] = sb.locator("div[data-cy='agency-data'] p").text
+                    item["Agency_page_url"] = sb.locator("div[data-cy='agency-data'] a").get_attribute("href")
 
-                slideshow_items = details.find_all("div", "nd-slideshow__item")
-                
-                for slideshow_item in slideshow_items:
-                    img_url = slideshow_item.find("img").get("src")
-                    #Make sure that I don't include two times the same image in the df
-                    if not img_url in item["Photos"]:
-                        item["Photos"] += img_url + " "
-                
-                item["Photos"] = item["Photos"].rstrip()
+                    item["Photos"] = ""
+                    images = sb.select_all("img[fetchpriority]")
 
-                accomodations.append(item)
+                    for image in images:
+                        image_url = image.get_attribute("src")
+                        item["Photos"] += image_url + " "
+                    
+                    item["Photos"] = item["Photos"].rstrip()
 
-            logging.info("Page " + str(current_page) + " of immotop.lu has entirely been scrapped !")
-            current_page += 1
+                    accomodations.append(item)
+
+                logging.info("Page " + str(current_page) + " of immotop.lu has entirely been scrapped !")
+                current_page += 1
 
         logging.info("Scraping of immotop.lu is successfully finished !")
         
@@ -335,9 +301,6 @@ def extract_immotop_lu_data(ds):
         df["Snapshot_day"] = ds
         df["Website"] = "immotop.lu"
 
-        utils.create_data_related_folder_if_not_exists("raw")
-        df.to_csv(f"{Variable.get('immo_lux_data_folder')}/raw/immotop_lu_{ds}.csv", index=False)
+        df.to_csv(f"gs://accomodations-lux/raw/immotop/immotop_lu_{ds}.csv", index=False)
     else:
         logging.error(f"The extraction task can't be executed because its execution date ({ds}) is earlier or later than yesterday ({yesterday}) !")
-
-# extract_athome_data("2026-07-05")
