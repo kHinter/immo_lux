@@ -29,7 +29,7 @@ data "google_project" "project" {
 
 resource "google_service_account" "cloud_storage_access" {
   account_id = "cloud-storage-access"
-  display_name = "cloud-storage-access"
+  display_name = "cloud-storage_access"
   project = data.google_project.project.project_id
 }
 
@@ -37,16 +37,6 @@ resource "google_project_iam_member" "cloud_storage_access_role" {
   project = data.google_project.project.project_id
   role="roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.cloud_storage_access.email}"
-}
-
-resource "google_service_account_key" "cloud_storage_access_key" {
-  service_account_id = google_service_account.cloud_storage_access.name
-}
-
-#Store the GCS service account private key locally to be able to access GCS from the Airflow DAG
-resource "local_file" "gcs_service_account_credentials_file" {
-  content = base64encode(google_service_account_key.cloud_storage_access_key.private_key)
-  filename="../${path.module}/include/gcs_service_account_credentials.json"
 }
 
 resource "google_storage_bucket" "main_gcs_bucket" {
@@ -74,14 +64,31 @@ resource "google_project_iam_member" "default_node_service_account_role" {
   member = "serviceAccount:${google_service_account.gke_access.email}"
 }
 
-resource "google_container_cluster" "gke_cluster" {
-  name = "main-cluster"
-  location = "europe-west1"
-  enable_autopilot = true
+#To be able to pull custom docker images from Artifact Registry
+resource "google_project_iam_member" "artifact_registry_reader_role" {
+  project = data.google_project.project.project_id
+  role = "roles/artifactregistry.reader"
+  member = "serviceAccount:${google_service_account.gke_access.email}"
+}
 
-  cluster_autoscaling {
-    auto_provisioning_defaults {
-      service_account = google_service_account.gke_access.email
-    }
-  }
+resource "google_artifact_registry_repository" "docker_images_repository" {
+  location = "europe-west1"
+  repository_id = "docker-images"
+  description = "Docker images for the immo_lux project"
+  format = "DOCKER"
+  mode = "STANDARD_REPOSITORY"
+}
+
+#To be able to push custom docker images to Artifact Registry
+
+resource "google_service_account" "artifact_registry_writer" {
+  account_id = "artifact-registry-writer"
+  display_name = "artifact-registry-writer"
+  project = data.google_project.project.project_id
+}
+
+resource "google_project_iam_member" "artifact_registry_writer_role" {
+  project = data.google_project.project.project_id
+  role = "roles/artifactregistry.writer"
+  member = "serviceAccount:${google_service_account.artifact_registry_writer.email}"
 }

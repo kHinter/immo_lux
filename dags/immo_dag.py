@@ -1,13 +1,28 @@
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.sdk import Variable
+from airflow.providers.google.cloud.operators.kubernetes_engine import (
+    GKECreateClusterOperator,
+    GKEStartJobOperator,
+    GKEDeleteClusterOperator
+)
+
+from kubernetes.client import models as k8s
+from google.cloud.container_v1.types import (
+    Cluster, 
+    Autopilot,
+    NodePool,
+    NodeConfig,
+    ClusterAutoscaling,
+    AutoprovisioningNodePoolDefaults
+)
 
 import pendulum
 from datetime import timedelta
 import pandas as pd
 
 # Local includes
-from include.extract_data import extract_immotop_lu_data, extract_athome_data
+from include.extract_data import extract_immotop_lu_data
 from include.data_cleaning import immotop_lu_data_cleaning, athome_lu_data_cleaning
 from include.data_enrichment import immotop_lu_enrichment, athome_lu_enrichment
 from include.reports import generate_dq_report
@@ -89,15 +104,54 @@ with DAG(
     schedule='1 0 * * *',
     catchup=False
 ) as dag:
+    
+    create_cluster = GKECreateClusterOperator(
+        task_id="create_cluster",
+        project_id=Variable.get("gcp_project_id"),
+        location="europe-west1",
+        body=Cluster(
+            name="immo-dag-cluster",
+            initial_node_count=1,
+            autopilot=Autopilot(enabled=True),
+            autoscaling=ClusterAutoscaling(
+                autoprovisioning_node_pool_defaults=AutoprovisioningNodePoolDefaults(
+                    service_account=Variable.get("gke_node_service_account"),
+                    oauth_scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                )
+            )
+        )
+    )
+
+    extract_data_from_athome_lu = GKEStartJobOperator(
+        task_id="extract_data_from_athome_lu",
+        project_id=Variable.get("gcp_project_id"),
+        location="europe-west1",
+        cluster_name="immo-dag-cluster",
+        namespace="default",
+        image="europe-west1-docker.pkg.dev/lux-immo-438316/docker-images/athome_scraper:v1",
+        cmds=["python", "athome_scraping.py"],
+        container_resources=k8s.V1ResourceRequirements(
+            requests={
+                "memory": "4Gi",
+                "cpu": "1"
+            },
+            limits={
+                "memory": "6Gi",
+                "cpu": "1"
+            }
+        ),
+        is_delete_operator_pod=True
+    )
+    
     extract_data_from_immotop_lu = PythonOperator(
         task_id = "extract_data_from_immotop_lu",
         python_callable=extract_immotop_lu_data
     )
 
-    extract_data_from_athome_lu = PythonOperator(
-            task_id = "extract_data_from_athome_lu",
-            python_callable=extract_athome_data
-    )
+    # extract_data_from_athome_lu = PythonOperator(
+    #         task_id = "extract_data_from_athome_lu",
+    #         python_callable=extract_athome_data
+    # )
 
     transform_data_from_immotop_lu = PythonOperator(
         task_id = "transform_data_from_immotop_lu",
@@ -155,6 +209,8 @@ with DAG(
         task_id = "gx_dq_validation",
         python_callable=verify_dq,
     )
+
+    create_cluster >> [extract_data_from_immotop_lu, extract_data_from_athome_lu]
     
     extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment >> verify_no_data_loss_after_athome_lu_data_enrichment
     extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment >> verify_no_data_loss_after_immotop_lu_data_enrichment
