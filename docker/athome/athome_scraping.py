@@ -7,6 +7,14 @@ import gcsfs
 
 last_page_scraped = 0
 
+def test():
+    fs = gcsfs.GCSFileSystem()
+    df = pd.DataFrame({
+        "A": [1, 2, 3],
+        "B": ["a", "b", "c"]
+    })
+    df.to_csv("gs://accomodations-lux/raw/athome/test.csv", index=False)
+
 def extract_athome_data(ds):
     #Initialize GCS File System
     fs = gcsfs.GCSFileSystem()
@@ -166,4 +174,5 @@ def extract_athome_data(ds):
         logging.error(f"The extraction task can't be executed because its execution date ({ds}) is earlier or later than yesterday ({yesterday}) !")
 
 if __name__ == "__main__":
-    extract_athome_data(date.today().isoformat())
+    # extract_athome_data(date.today().isoformat())
+    test()

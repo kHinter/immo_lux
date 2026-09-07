@@ -24,19 +24,31 @@ provider "google" {
 }
 
 data "google_project" "project" {
-
+  
 }
 
-resource "google_service_account" "cloud_storage_access" {
-  account_id = "cloud-storage-access"
-  display_name = "cloud-storage_access"
+resource "google_service_account" "airflow" {
+  account_id = "airflow"
+  display_name = "airflow"
   project = data.google_project.project.project_id
 }
 
 resource "google_project_iam_member" "cloud_storage_access_role" {
   project = data.google_project.project.project_id
   role="roles/storage.objectUser"
-  member = "serviceAccount:${google_service_account.cloud_storage_access.email}"
+  member = "serviceAccount:${google_service_account.airflow.email}"
+}
+
+resource "google_project_iam_member" "gke_manager_role" {
+  project = data.google_project.project.project_id
+  role = "roles/container.admin"
+  member = "serviceAccount:${google_service_account.airflow.email}"
+}
+
+resource "google_project_iam_member" "service_account_user_role" {
+  project = data.google_project.project.project_id
+  role = "roles/iam.serviceAccountUser"
+  member = "serviceAccount:${google_service_account.airflow.email}"
 }
 
 resource "google_storage_bucket" "main_gcs_bucket" {
@@ -77,6 +89,15 @@ resource "google_artifact_registry_repository" "docker_images_repository" {
   description = "Docker images for the immo_lux project"
   format = "DOCKER"
   mode = "STANDARD_REPOSITORY"
+
+  cleanup_policies {
+    id = "delete-old-images"
+    action = "DELETE"
+    condition {
+      tag_state = "UNTAGGED"
+      older_than = "3600s"
+    }
+  }
 }
 
 #To be able to push custom docker images to Artifact Registry
