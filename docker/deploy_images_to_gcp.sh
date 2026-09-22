@@ -12,7 +12,7 @@ docker run --privileged --rm tonistiigi/binfmt --install all
 
 #IMPORTANT : Always precise the platform because the most common platform is linux/amd64 and if you don't specify it, it will build for your local platform which is probably not linux/amd64 and the image will not work on GCP
 docker buildx build \
-    --file Dockerfile \
+    --file ./athome/Dockerfile \
     --tag $REGISTRY_NAME/$APP_NAME:v1 \
     --cache-from type=registry,ref=$REGISTRY_NAME/$APP_NAME:cache \
     --cache-to type=registry,ref=$REGISTRY_NAME/$APP_NAME:cache,mode=max \

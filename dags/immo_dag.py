@@ -1,22 +1,9 @@
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
-from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import Variable
-from airflow.providers.google.cloud.operators.kubernetes_engine import (
-    GKECreateClusterOperator,
-    GKEStartJobOperator,
-    GKEDeleteClusterOperator
-)
 
+from airflow.providers.google.cloud.operators.kubernetes_engine import GKEStartJobOperator
 from kubernetes.client import models as k8s
-from google.cloud.container_v1.types import (
-    Cluster, 
-    Autopilot,
-    ClusterAutoscaling,
-    AutoprovisioningNodePoolDefaults,
-    LoggingConfig,
-    LoggingComponentConfig
-)
 
 import pendulum
 from datetime import timedelta
@@ -108,34 +95,6 @@ with DAG(
     schedule='1 0 * * *',
     catchup=False
 ) as dag:
-    
-    create_cluster = GKECreateClusterOperator(
-        task_id="create_cluster",
-        project_id=Variable.get("gcp_project_id"),
-        location="europe-west1",
-        body=Cluster(
-            name=CLUSTER_NAME,
-            initial_node_count=1,
-            autopilot=Autopilot(enabled=True),
-            autoscaling=ClusterAutoscaling(
-                autoprovisioning_node_pool_defaults=AutoprovisioningNodePoolDefaults(
-                    service_account=Variable.get("gke_node_service_account"),
-                    oauth_scopes=["https://www.googleapis.com/auth/cloud-platform"]
-                )
-            ),
-            logging_config=LoggingConfig(
-                component_config=LoggingComponentConfig(
-                    enable_components=["SYSTEM_COMPONENTS", "WORKLOADS"]
-                )
-            )
-        ),
-        gcp_conn_id="google_cloud_default"
-    )
-
-    setup_wif_for_gcs = BashOperator(
-        task_id="setup_wif_for_gcs",
-        bash_command= f"bash /usr/local/airflow/dags/scripts/gke_wif_setup.sh {CLUSTER_NAME} {CLUSTER_REGION} {Variable.get('gcp_project_id')} airflow@lux-immo-438316.iam.gserviceaccount.com"
-    )
 
     extract_data_from_athome_lu = GKEStartJobOperator(
         task_id="extract_data_from_athome_lu",
@@ -143,7 +102,7 @@ with DAG(
         location=CLUSTER_REGION,
         cluster_name=CLUSTER_NAME,
         namespace="default",
-        service_account_name="athome-scraper-ksa",
+        service_account_name="scraping-ksa",
         image="europe-west1-docker.pkg.dev/lux-immo-438316/docker-images/athome-scraper:v1",
         cmds=["python", "athome_scraping.py"],
         container_resources=k8s.V1ResourceRequirements(
@@ -226,8 +185,6 @@ with DAG(
         task_id = "gx_dq_validation",
         python_callable=verify_dq,
     )
-
-    create_cluster >> setup_wif_for_gcs >> [extract_data_from_immotop_lu, extract_data_from_athome_lu]
 
     extract_data_from_athome_lu >> transform_data_from_athome_lu >> athome_lu_data_enrichment >> verify_no_data_loss_after_athome_lu_data_enrichment
     extract_data_from_immotop_lu >> transform_data_from_immotop_lu >> immotop_lu_data_enrichment >> verify_no_data_loss_after_immotop_lu_data_enrichment

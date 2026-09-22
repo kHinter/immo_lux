@@ -29,3 +29,4 @@ gx_merged.csv
 *.tfstate
 *.tfstate.backup
 .terraform/
+variables.tf

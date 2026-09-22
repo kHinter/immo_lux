@@ -14,3 +14,4 @@ gcsfs
 seleniumbase
 apache-airflow-providers-google
 apache-airflow-providers-cncf-kubernetes
+astro-run-dag
