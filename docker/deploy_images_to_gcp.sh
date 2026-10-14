@@ -20,3 +20,8 @@ docker buildx build \
     --push ./athome
 
 echo "Docker image successfully pushed to Artifact Registry"
+
+#To clean the local image and build cache generated
+docker system prune -a
+
+echo "Docker prune successfully executed"

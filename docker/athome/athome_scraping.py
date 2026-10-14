@@ -23,6 +23,8 @@ def extract_athome_data(ds):
         current_page = 1
         accomodations = []
         proceed = True
+
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
         with sync_playwright() as p:
             logging.info("Scraping of athome.lu has started !")
@@ -35,10 +37,10 @@ def extract_athome_data(ds):
 
                 try:
                     current_url = athome_url + str(current_page)
-                    main_page.goto(current_url)
+                    response = main_page.goto(current_url)
 
                     #Check if we have reached the end of the results
-                    if main_page.locator("p.no_results").is_visible():
+                    if response.status != 200:
                         break
                     else:
                         #List all the properties to treat

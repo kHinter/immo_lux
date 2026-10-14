@@ -116,7 +116,9 @@ with DAG(
             }
         ),
         is_delete_operator_pod=True,
-        wait_until_job_complete=True
+        wait_until_job_complete=True,
+        execution_timeout=timedelta(hours=6),
+        deferrable=True
     )
     
     extract_data_from_immotop_lu = PythonOperator(

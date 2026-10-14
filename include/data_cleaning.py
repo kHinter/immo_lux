@@ -291,7 +291,7 @@ def immotop_lu_data_cleaning(ds):
 
 def athome_lu_data_cleaning(ds):
     df = pd.read_csv(
-        f"{Variable.get('immo_lux_data_folder')}/raw/athome_{ds}.csv",
+        f"gs://accomodations-lux/raw/athome/athome_{ds}.csv",
         dtype={
             "Monthly_charges" : "Int64",
             "Deposit" : "Int64",
